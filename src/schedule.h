@@ -6,21 +6,21 @@
 
 // Included external source and headers
 #include <alglib/optimization.h>
-#include <Eigen/Dense>
+//#include <Eigen/Dense>
 //#include <Eigen/Sparse>
 
 // Project specific
 #include "src/market.h"
 
-#ifndef EIGEN_TYPES
-#define EIGEN_TYPES
-
-namespace Eigen{
-    typedef Eigen::Matrix<ptrdiff_t, Eigen::Dynamic, 1> VectorXpd;
-//    typedef Eigen::Triplet <double> TripletXd;
-}
-
-#endif
+//#ifndef EIGEN_TYPES
+//#define EIGEN_TYPES
+//
+//namespace Eigen{
+//    typedef Eigen::Matrix<ptrdiff_t, Eigen::Dynamic, 1> VectorXpd;
+////    typedef Eigen::Triplet <double> TripletXd;
+//}
+//
+//#endif
 
 class scheduler_class{
     private:
@@ -31,7 +31,8 @@ class scheduler_class{
     public:
         scheduler_class(){
             // At each time interval, each market participant has 36 variables
-            // for every t:
+            // self, lem, rer, cer of initial SOC are the first variables,
+            // then for every t:
                 // Variables 0 - 3: self, lem, rer, cer of aggregated supply
                 // Variables 4 - 7: self, lem, rer, cer of aggregated demand
                 // Variables 8 - 12: conv, res, demand, ch, dc
@@ -92,6 +93,7 @@ class scheduler_class{
             unsigned int variable_num_single = this->variable_name.size();
             unsigned int variable_num = variable_num_single * market.participants.size();
             variable_num *= num_interval;
+            variable_num += 4 * market.participants.size();
 
             // -------------------------------------------------------------------------------
             // Set matrix for general equality constraints
@@ -108,18 +110,18 @@ class scheduler_class{
                     // Constraints 9 - 12: physical components of self, lem, rer, cer of supply
                     // Constraints 13 - 16: physical components of self, lem, rer, cer of demand
                     // Constraints 17 - 20: dynamics of accounting components of soc
-            unsigned int constrant_num_single = 21;
-            unsigned int constrant_num = constrant_num_single * market.participants.size() + 3;
-            constrant_num *= num_interval;
-            Eigen::VectorXpd non_zero_num(constrant_num);
+            unsigned int constraint_num_single = 21;
+            unsigned int constraint_num = constraint_num_single * market.participants.size() + 3;
+            constraint_num *= num_interval;
+            std::vector <ptrdiff_t> non_zero_num(constraint_num);
             for(unsigned int tick = 0; tick < num_interval; ++ tick){
-                unsigned int start_ID = (constrant_num_single * market.participants.size() + 3) * tick;
+                unsigned int start_ID = (constraint_num_single * market.participants.size() + 3) * tick;
                 non_zero_num[start_ID] = 2 * market.participants.size();
                 non_zero_num[start_ID + 1] = 2 * market.participants.size();
                 non_zero_num[start_ID + 2] = 2 * market.participants.size();
 
                 for(unsigned int agent_iter = 0; agent_iter < market.participants.size(); ++ agent_iter){
-                    unsigned int start_ID_temp = start_ID + 3 + constrant_num_single * agent_iter;
+                    unsigned int start_ID_temp = start_ID + 3 + constraint_num_single * agent_iter;
                     non_zero_num[start_ID_temp] = 7;
                     non_zero_num[start_ID_temp + 1] = 6;
                     non_zero_num[start_ID_temp + 2] = 2;
@@ -146,10 +148,11 @@ class scheduler_class{
             alglib::integer_1d_array row_sizes_general;
             row_sizes_general.setcontent(non_zero_num.size(), non_zero_num.data());
             alglib::sparsematrix constraint_general;
-            alglib::sparsecreatecrs(constrant_num, variable_num, row_sizes_general, constraint_general);
+            alglib::sparsecreatecrs(constraint_num, variable_num, row_sizes_general, constraint_general);
             for(unsigned int tick = 0; tick < num_interval; ++ tick){
-                unsigned int start_row_ID = (constrant_num_single * market.participants.size() + 3) * tick;
-                unsigned int start_col_ID = variable_num_single * market.participants.size() * tick;
+                unsigned int start_row_ID = (constraint_num_single * market.participants.size() + 3) * tick;
+                unsigned int start_col_ID = variable_num_single * tick + 4;
+                start_col_ID *= market.participants.size();
 
                 // Market wide linking constraints
                 // supply demand balancing of lem, cer, and rer
@@ -167,7 +170,7 @@ class scheduler_class{
 
                 // Participant specific constraints
                 for(unsigned int agent_iter = 0; agent_iter < market.participants.size(); ++ agent_iter){
-                    unsigned int start_row_ID_temp = start_row_ID + 3 + constrant_num_single * agent_iter;
+                    unsigned int start_row_ID_temp = start_row_ID + 3 + constraint_num_single * agent_iter;
 
                     // Physical equals accounting, supply and demand
                     for(unsigned int dir_iter = 0; dir_iter < 2; ++ dir_iter){
@@ -367,7 +370,50 @@ class scheduler_class{
             }
 
             // -------------------------------------------------------------------------------
-            // Set box constraints
+            // Set boundary for equality constraints
             // -------------------------------------------------------------------------------
+            std::vector <double> bound_general(constraint_num);
+            for(ptrdiff_t constr_iter = 0; constr_iter < constraint_num; ++ constr_iter){
+                bound_general[constr_iter] = 0.;
+            }
+            alglib::real_1d_array lb_general;
+            alglib::real_1d_array ub_general;
+            lb_general.setcontent(bound_general.size(), bound_general.data());
+            ub_general.setcontent(bound_general.size(), bound_general.data());
+
+            // -------------------------------------------------------------------------------
+            // Set scale of variables
+            // -------------------------------------------------------------------------------
+
+
+
+            // -------------------------------------------------------------------------------
+            // Set the LP problem object
+            // -------------------------------------------------------------------------------
+            alglib::minlpcreate(variable_num, this->Problem);
+            alglib::minlpsetlc2(this->Problem, constraint_general, lb_general, ub_general, constraint_num);
+            alglib::minlpsetalgodss(this->Problem, 0.);
         }
+
+    void LP_solve(market_class &market){
+            // -------------------------------------------------------------------------------
+            // Set boundary for box constraints
+            // -------------------------------------------------------------------------------
+            std::vector <std::vector <double>> bound_box(2);
+            bound_box[0] = std::vector <double> (variable_num);
+            bound_box[1] = std::vector <double> (variable_num);
+            for(ptrdiff_t var_iter = 0; var_iter < variable_num; ++ var_iter){
+                bound_box[0][var_iter] = 0.;
+                bound_box[1][var_iter] = 0.;
+            }
+            alglib::real_1d_array lb_box;
+            alglib::real_1d_array ub_box;
+            lb_general.setcontent(bound_box[0].size(), bound_box[0].data());
+            ub_general.setcontent(bound_box[1].size(), bound_box[1].data());
+
+            // -------------------------------------------------------------------------------
+            // Set objective coefficients of variables
+            // -------------------------------------------------------------------------------
+
+    }
 };
