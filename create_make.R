@@ -21,7 +21,7 @@ output[row_ID] <- ""
 row_ID <- row_ID + 1
 output[row_ID] <- "WORKDIR = $(shell pwd)"
 row_ID <- row_ID + 1
-output[row_ID] <- "SEARCHDIR = $(shell pwd)/lib"
+output[row_ID] <- "INCLUDEDIR = $(shell pwd)/include"
 row_ID <- row_ID + 1
 output[row_ID] <- ""
 
@@ -43,7 +43,7 @@ output[row_ID] <- ""
 row_ID <- row_ID + 1
 output[row_ID] <- "INC = "
 row_ID <- row_ID + 1
-output[row_ID] <- "CFLAGS = -Wall -fopenmp -mavx2 -mfma -DNDEBUG -O3 -s -std=c++2a -I$(WORKDIR) -I$(SEARCHDIR)"
+output[row_ID] <- "CFLAGS = -Wall -fopenmp -mavx2 -mfma -DNDEBUG -O3 -s -std=c++2a -I$(WORKDIR) -I$(INCLUDEDIR)"
 row_ID <- row_ID + 1
 output[row_ID] <- "RCFLAGS = "
 row_ID <- row_ID + 1
@@ -82,11 +82,12 @@ row_ID <- row_ID + 1
 output[row_ID] <- ""
 
 ## Compiler flags specific
-src_files <- list.files(paste(dir, "/src", sep = ""), recursive = TRUE)
+src_files <- list.files(paste(dir, "/", sep = ""), recursive = TRUE)
 text_temp <- "OBJ_COMPILE ="
 for(file_iter in 1:length(src_files)){
   if(strsplit(src_files[file_iter], ".cpp")[[1]][1] != src_files[file_iter]){
-    text_temp <- paste(text_temp, " $(OBJDIR_COMPILE)/src/", src_files[file_iter], ".o", sep = "")
+    obj_name_temp = strsplit(src_files[file_iter], ".cpp")[[1]][1]
+    text_temp <- paste(text_temp, " $(OBJDIR_COMPILE)/", obj_name_temp, ".o", sep = "")
   }
 }
 row_ID <- row_ID + 1
@@ -96,18 +97,20 @@ output[row_ID] <- ""
 
 ## Define commands
 row_ID <- row_ID + 1
-output[row_ID] <- "all: compile"
+output[row_ID] <- "all: restart compile"
 row_ID <- row_ID + 1
 output[row_ID] <- "clean: clean_compile"
 row_ID <- row_ID + 1
-output[row_ID] <- "refresh: clean compile"
+output[row_ID] <- "restart: restart_compile"
+row_ID <- row_ID + 1
+output[row_ID] <- "rebuild: clean compile"
 row_ID <- row_ID + 1
 output[row_ID] <- ""
 
 ## Source directory list
-src_dirs <- list.dirs(paste(dir, "/src", sep = ""), recursive = TRUE, full.names = FALSE)
+src_dirs <- list.dirs(paste(dir, sep = ""), recursive = TRUE, full.names = FALSE)
 for(dir_iter in 1:length(src_dirs)){
-  src_dirs[dir_iter] <- paste("/src", src_dirs[dir_iter], sep = "")
+  src_dirs[dir_iter] <- paste("/", src_dirs[dir_iter], sep = "")
 }
 
 ## Before compile, make sure directories already exist
@@ -147,19 +150,30 @@ output[row_ID] <- ""
 
 for(file_iter in 1:length(src_files)){
   if(strsplit(src_files[file_iter], ".cpp")[[1]][1] != src_files[file_iter]){
-    text_temp <- "$(OBJDIR_COMPILE)/src/"
-    text_temp <- paste(text_temp, src_files[file_iter], ".o: src/", src_files[file_iter], sep = "")
+    obj_name_temp <- strsplit(src_files[file_iter], ".cpp")[[1]][1]
+    text_temp <- "$(OBJDIR_COMPILE)"
+    text_temp <- paste(text_temp, "/", obj_name_temp, ".o: ", src_files[file_iter], sep = "")
     row_ID <- row_ID + 1
     output[row_ID] <- text_temp    
-    text_temp <- "\t$(CXX) $(CFLAGS_COMPILE) $(INC_COMPILE) -c src/"
+    text_temp <- "\t$(CXX) $(CFLAGS_COMPILE) $(INC_COMPILE) -c "
     text_temp <- paste(text_temp, src_files[file_iter], " -o ", sep = "")
-    text_temp <- paste(text_temp, "$(OBJDIR_COMPILE)/src/", src_files[file_iter], ".o", sep = "")
+    text_temp <- paste(text_temp, "$(OBJDIR_COMPILE)/", obj_name_temp, ".o", sep = "")
     row_ID <- row_ID + 1
     output[row_ID] <- text_temp
     row_ID <- row_ID + 1
     output[row_ID] <- ""
   }
 }
+
+## Clean only src dir
+row_ID <- row_ID + 1
+output[row_ID] <- "restart_compile:"
+row_ID <- row_ID + 1
+output[row_ID] <- "\trm -f $(OUT_COMPILE)"
+row_ID <- row_ID + 1
+output[row_ID] <- "\trm -rf $(OBJDIR_COMPILE)/src"
+row_ID <- row_ID + 1
+output[row_ID] <- ""
 
 ## Clean compile
 row_ID <- row_ID + 1

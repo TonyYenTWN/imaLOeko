@@ -3,7 +3,8 @@
 
 // Project specific
 #include "src/db.h"
-#include "src/market_clearing.h"
+#include "src/market.h"
+#include "src/optimizer.h"
 #include "src/ts.h"
 
 int main(int argc, char* argv[]){
