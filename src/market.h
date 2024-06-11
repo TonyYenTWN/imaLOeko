@@ -6,8 +6,13 @@
 #include <variant>
 #include <vector>
 
+#ifndef DATAFRAME
+#define DATAFRAME
+
 typedef std::map <std::string, double> double_df;
 typedef std::map <std::string, std::vector <double>> double_vec_df;
+
+#endif
 
 class market_information_class{
     private:
@@ -54,7 +59,7 @@ class market_information_class{
             return this->parameter[key];
         }
 
-       std::vector <double> get_prediction_values(std::string key){
+        std::vector <double> get_prediction_values(std::string key){
             return this->prediction[key];
         }
 };
@@ -84,7 +89,7 @@ class market_participant_class{
                 // Capability
                 bess_par["energy"] = (double) 0.;
                 bess_par["capacity"] = (double) 0.;
-                bess_par["efficiency"] = (double) 0.;
+                bess_par["efficiency"] = (double) 1.;
 
                 // Initial soc
                 double_df initial_soc;
@@ -129,6 +134,10 @@ class market_participant_class{
 
             this->schedule = operation;
             this->actual = operation;
+        }
+
+        std::map <std::string, std::variant <unsigned int, double_df, std::map <std::string, std::variant <double, double_df>>>> get_parameters(){
+            return this->parameter;
         }
 
         // Test the program
