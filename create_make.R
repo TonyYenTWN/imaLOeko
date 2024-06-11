@@ -19,6 +19,8 @@ output[row_ID] <- ""
 
 ## Working directory in shell
 row_ID <- row_ID + 1
+output[row_ID] <- "ENVDIR = <path to the conda environment>"
+row_ID <- row_ID + 1
 output[row_ID] <- "WORKDIR = $(shell pwd)"
 row_ID <- row_ID + 1
 output[row_ID] <- "INCLUDEDIR = $(shell pwd)/include"
@@ -27,15 +29,13 @@ output[row_ID] <- ""
 
 ## Compiler settings
 row_ID <- row_ID + 1
-output[row_ID] <- "CC = gcc"
+output[row_ID] <- "CC = $(ENVDIR)/bin/gcc"
 row_ID <- row_ID + 1
-output[row_ID] <- "CXX = g++"
+output[row_ID] <- "CXX = $(ENVDIR)/bin/g++"
 row_ID <- row_ID + 1
-output[row_ID] <- "AR = ar"
+output[row_ID] <- "AR = $(ENVDIR)/bin/ar"
 row_ID <- row_ID + 1
-output[row_ID] <- "LD = g++"
-row_ID <- row_ID + 1
-output[row_ID] <- "WINDRES = windres"
+output[row_ID] <- "LD = $(ENVDIR)/bin/g++"
 row_ID <- row_ID + 1
 output[row_ID] <- ""
 
@@ -43,7 +43,7 @@ output[row_ID] <- ""
 row_ID <- row_ID + 1
 output[row_ID] <- "INC = "
 row_ID <- row_ID + 1
-output[row_ID] <- "CFLAGS = -Wall -fopenmp -mavx2 -mfma -DNDEBUG -O3 -s -std=c++2a -I$(WORKDIR) -I$(INCLUDEDIR)"
+output[row_ID] <- "CFLAGS = -Wall -fopenmp -mavx2 -mfma -DNDEBUG -O3 -s -std=c++2a -I$(WORKDIR) -I$(INCLUDEDIR) -I$(ENVDIR)/include/"
 row_ID <- row_ID + 1
 output[row_ID] <- "RCFLAGS = "
 row_ID <- row_ID + 1
@@ -82,11 +82,22 @@ row_ID <- row_ID + 1
 output[row_ID] <- ""
 
 ## Compiler flags specific
+sub_dir_name <- c("include", "src")
+src_files <- c()
+for(sub_dir_iter in 1:length(sub_dir_name)){
+  src_files_temp <- list.files(paste(dir, "/", sub_dir_name[sub_dir_iter], sep = ""), recursive = TRUE)
+  src_files_temp <- paste(sub_dir_name[sub_dir_iter], "/", src_files_temp, sep = "")
+  
+  src_files <- c(src_files, src_files_temp)
+}
 src_files <- list.files(paste(dir, "/", sep = ""), recursive = TRUE)
 text_temp <- "OBJ_COMPILE ="
 for(file_iter in 1:length(src_files)){
   if(strsplit(src_files[file_iter], ".cpp")[[1]][1] != src_files[file_iter]){
     obj_name_temp = strsplit(src_files[file_iter], ".cpp")[[1]][1]
+    text_temp <- paste(text_temp, " $(OBJDIR_COMPILE)/", obj_name_temp, ".o", sep = "")
+  }else if(strsplit(src_files[file_iter], ".c")[[1]][1] != src_files[file_iter]){
+    obj_name_temp = strsplit(src_files[file_iter], ".c")[[1]][1]
     text_temp <- paste(text_temp, " $(OBJDIR_COMPILE)/", obj_name_temp, ".o", sep = "")
   }
 }
@@ -108,18 +119,25 @@ row_ID <- row_ID + 1
 output[row_ID] <- ""
 
 ## Source directory list
-src_dirs <- list.dirs(paste(dir, sep = ""), recursive = TRUE, full.names = FALSE)
-for(dir_iter in 1:length(src_dirs)){
-  src_dirs[dir_iter] <- paste("/", src_dirs[dir_iter], sep = "")
+sub_dir_name <- c("include", "src")
+src_dirs <- c()
+for(sub_dir_iter in 1:length(sub_dir_name)){
+  src_dir_temp <- list.dirs(paste(dir, "/", sub_dir_name[sub_dir_iter], sep = ""), recursive = TRUE, full.names = FALSE)
+  
+  for(temp_dir_iter in 1:length(src_dir_temp)){
+    src_dir_temp[temp_dir_iter] <- paste(sub_dir_name[sub_dir_iter], "/", src_dir_temp[temp_dir_iter], sep = "")
+  }
+  
+  src_dirs <- c(src_dirs, src_dir_temp)
 }
 
 ## Before compile, make sure directories already exist
 row_ID <- row_ID + 1
 output[row_ID] <- "before_compile:"
 for(dir_iter in 1:length(src_dirs)){
-  text_temp <- "\ttest -d $(OBJDIR_COMPILE)"
+  text_temp <- "\ttest -d $(OBJDIR_COMPILE)/"
   text_temp <- paste(text_temp, src_dirs[dir_iter], sep = "")
-  text_temp <- paste(text_temp, " || mkdir -p $(OBJDIR_COMPILE)", sep = "")
+  text_temp <- paste(text_temp, " || mkdir -p $(OBJDIR_COMPILE)/", sep = "")
   text_temp <- paste(text_temp, src_dirs[dir_iter], sep = "")
   
   row_ID <- row_ID + 1
