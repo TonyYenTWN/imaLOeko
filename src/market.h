@@ -29,6 +29,14 @@ class market_information_class{
             this->prediction["electricity_price"] = vec_double;
         }
 
+        std::variant <unsigned int, double> get_parameter_values(std::string key){
+            return this->parameter[key];
+        }
+
+        std::vector <double> get_prediction_values(std::string key){
+            return this->prediction[key];
+        }
+
         // Test the program
         void test(){
             // Insert time length (in hours)
@@ -53,14 +61,6 @@ class market_information_class{
                 electricity_price.push_back(10.);
             }
             this->prediction["electricity_price"] = electricity_price;
-        }
-
-        std::variant <unsigned int, double> get_parameter_values(std::string key){
-            return this->parameter[key];
-        }
-
-        std::vector <double> get_prediction_values(std::string key){
-            return this->prediction[key];
         }
 };
 
@@ -105,6 +105,7 @@ class market_participant_class{
             std::vector <double> vec_double;
             this->prediction["default_demand"] = vec_double;
             this->prediction["res_generation"] = vec_double;
+            this->prediction["conv_generation"] = vec_double;
 
             // Schedule and actual operation for optimization
             // Operation of BESS
@@ -140,47 +141,75 @@ class market_participant_class{
             return this->parameter;
         }
 
+        double get_prediction_value(std::string key, unsigned int tick){
+            return this->prediction[key][tick];
+        }
+
         // Test the program
         void test(unsigned int num_time, market_information_class &information){
             auto participant_type = std::get <unsigned int> (this->parameter["type"]);
             auto time_length = information.get_prediction_values("time_length");
 
+            std::vector <double> default_demand;
+            default_demand.reserve(num_time);
+            std::vector <double> conv_generation;
+            conv_generation.reserve(num_time);
+            std::vector <double> res_generation;
+            res_generation.reserve(num_time);
+
             // Insert default demand for prosumers
             if(participant_type >= 2){
-                std::vector <double> default_demand;
-                default_demand.reserve(num_time);
-
                 for(unsigned int tick = 0; tick < num_time; ++ tick){
                     double demand_temp = 1.;
+                    double res_temp = 0.;
+                    double conv_temp = 0.;
+
                     demand_temp *= time_length[tick];
                     default_demand.push_back(demand_temp);
+                    conv_temp *= time_length[tick];
+                    conv_generation.push_back(conv_temp);
+                    res_temp *= time_length[tick];
+                    res_generation.push_back(res_temp);
                 }
             }
             // Insert default demand for retailers
             else{
                 // Non-RES retailer
                 if(participant_type == 0){
-                    std::vector <double> conv_generation;
-                    conv_generation.reserve(num_time);
-
                     for(unsigned int tick = 0; tick < num_time; ++ tick){
+                        double demand_temp = 0.;
+                        double res_temp = 0.;
                         double conv_temp = 1.;
+
+                        demand_temp *= time_length[tick];
+                        default_demand.push_back(demand_temp);
                         conv_temp *= time_length[tick];
                         conv_generation.push_back(conv_temp);
+                        res_temp *= time_length[tick];
+                        res_generation.push_back(res_temp);
                     }
                 }
                 // RES retailer
                 else{
-                    std::vector <double> res_generation;
-                    res_generation.reserve(num_time);
-
                     for(unsigned int tick = 0; tick < num_time; ++ tick){
+                        double demand_temp = 0.;
                         double res_temp = .5;
+                        double conv_temp = 0.;
+
+                        demand_temp *= time_length[tick];
+                        default_demand.push_back(demand_temp);
+                        conv_temp *= time_length[tick];
+                        conv_generation.push_back(conv_temp);
                         res_temp *= time_length[tick];
                         res_generation.push_back(res_temp);
                     }
                 }
             }
+
+            // Store prediction time series
+            this->prediction["default_demand"] = default_demand;
+            this->prediction["res_generation"] = res_generation;
+            this->prediction["conv_generation"] = conv_generation;
         }
 };
 
