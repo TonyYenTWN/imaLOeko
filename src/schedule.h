@@ -101,21 +101,23 @@ class scheduler_class{
             this->variable.number = variable_num;
 
             // -------------------------------------------------------------------------------
-            // Set matrix for general equality constraints
+            // Set matrix for general constraints
             // -------------------------------------------------------------------------------
-            // At each time interval the market has (3 + 21 * p) equality constraints
+            // At each time interval the market has (3 + 21 * p) general constraints
+            // Unless stated otherwise, they will be equality constraints
             // for every t:
                 // Constraints 0 - 2: equality between summation of aggregated supply and demand for lem, rer, and cer markets
                 // for every p:
                     // Constraints 0: equality between summation of physical and accounting components of supply
                     // Constraints 1: equality between summation of physical and accounting components of demand
                     // Constraint 2: g_{self} = d_{self}
-                    // Constraint 3: soc = soc_{free} + soc_{ref}
-                    // Constraints 4 - 8: accounting components of res, demand, ch, dc, soc
-                    // Constraints 9 - 12: physical components of self, lem, rer, cer of supply
-                    // Constraints 13 - 16: physical components of self, lem, rer, cer of demand
-                    // Constraints 17 - 20: dynamics of accounting components of soc
-            unsigned int constraint_num_single = 21;
+                    // Constraint 3: d_{self} - default_demand - bess_ch <= 0
+                    // Constraint 4: soc = soc_{free} + soc_{ref}
+                    // Constraints 5 - 9: accounting components of res, demand, ch, dc, soc
+                    // Constraints 10 - 13: physical components of self, lem, rer, cer of supply
+                    // Constraints 14 - 17: physical components of self, lem, rer, cer of demand
+                    // Constraints 18 - 21: dynamics of accounting components of soc
+            unsigned int constraint_num_single = 22;
             unsigned int constraint_num = constraint_num_single * market.participants.size() + 3;
             constraint_num *= num_interval;
             std::vector <ptrdiff_t> non_zero_num(constraint_num);
@@ -131,27 +133,32 @@ class scheduler_class{
                     non_zero_num[start_ID_temp + 1] = 6;
                     non_zero_num[start_ID_temp + 2] = 2;
                     non_zero_num[start_ID_temp + 3] = 3;
-                    non_zero_num[start_ID_temp + 4] = 5;
+                    non_zero_num[start_ID_temp + 4] = 3;
                     non_zero_num[start_ID_temp + 5] = 5;
                     non_zero_num[start_ID_temp + 6] = 5;
                     non_zero_num[start_ID_temp + 7] = 5;
                     non_zero_num[start_ID_temp + 8] = 5;
-                    non_zero_num[start_ID_temp + 9] = 3;
+                    non_zero_num[start_ID_temp + 9] = 5;
                     non_zero_num[start_ID_temp + 10] = 3;
                     non_zero_num[start_ID_temp + 11] = 3;
-                    non_zero_num[start_ID_temp + 12] = 4;
-                    non_zero_num[start_ID_temp + 13] = 3;
+                    non_zero_num[start_ID_temp + 12] = 3;
+                    non_zero_num[start_ID_temp + 13] = 4;
                     non_zero_num[start_ID_temp + 14] = 3;
                     non_zero_num[start_ID_temp + 15] = 3;
                     non_zero_num[start_ID_temp + 16] = 3;
-                    non_zero_num[start_ID_temp + 17] = 3 + (tick > 0);
-                    non_zero_num[start_ID_temp + 18] = 3 + (tick > 0);
-                    non_zero_num[start_ID_temp + 19] = 3 + (tick > 0);
-                    non_zero_num[start_ID_temp + 20] = 3 + (tick > 0);
+                    non_zero_num[start_ID_temp + 17] = 3;
+                    non_zero_num[start_ID_temp + 18] = 4;
+                    non_zero_num[start_ID_temp + 19] = 4;
+                    non_zero_num[start_ID_temp + 20] = 4;
+                    non_zero_num[start_ID_temp + 21] = 4;
                 }
             }
             alglib::integer_1d_array row_sizes_general;
             row_sizes_general.setcontent(non_zero_num.size(), non_zero_num.data());
+
+            std::vector <std::vector <double>> bound_general(2);
+            bound_general[0] = std::vector <double> (constraint_num);
+            bound_general[1] = std::vector <double> (constraint_num);
             alglib::sparsematrix constraint_general;
             alglib::sparsecreatecrs(constraint_num, variable_num, row_sizes_general, constraint_general);
             for(unsigned int tick = 0; tick < num_interval; ++ tick){
@@ -169,15 +176,19 @@ class scheduler_class{
                         alglib::sparseset(constraint_general, row_ID, supply_ID, 1.);
                         alglib::sparseset(constraint_general, row_ID, demand_ID, -1.);
                     }
+
+                    bound_general[0][row_ID] = 0.;
+                    bound_general[1][row_ID] = 0.;
                 }
 
                 // Participant specific constraints
                 for(unsigned int agent_iter = 0; agent_iter < market.participants.size(); ++ agent_iter){
                     unsigned int start_row_ID_temp = start_row_ID + 3 + constraint_num_single * agent_iter;
+                    unsigned int constr_iter = 0;
 
                     // Physical equals accounting, supply and demand
                     for(unsigned int dir_iter = 0; dir_iter < 2; ++ dir_iter){
-                        unsigned int row_ID = start_row_ID_temp + dir_iter;
+                        unsigned int row_ID = start_row_ID_temp + constr_iter;
 
                         // Accounting
                         for(unsigned int account_iter = 0; account_iter < 4; ++ account_iter){
@@ -208,11 +219,15 @@ class scheduler_class{
                             col_ID = start_col_ID + variable_num_single * agent_iter + this->variable.ID["bess_ch"];
                             alglib::sparseset(constraint_general, row_ID, col_ID, -1.);
                         }
+
+                        bound_general[0][row_ID] = 0.;
+                        bound_general[1][row_ID] = 0.;
+                        constr_iter += 1;
                     }
 
                     // g_{self} = d_{self}
                     {
-                        unsigned int row_ID = start_row_ID_temp + 2;
+                        unsigned int row_ID = start_row_ID_temp + constr_iter;
                         unsigned int col_ID;
                         std::string var_name;
 
@@ -223,11 +238,38 @@ class scheduler_class{
                         var_name = "demand_self";
                         col_ID = start_col_ID + variable_num_single * agent_iter + this->variable.ID[var_name];
                         alglib::sparseset(constraint_general, row_ID, col_ID, -1.);
+
+                        bound_general[0][row_ID] = 0.;
+                        bound_general[1][row_ID] = 0.;
+                        constr_iter += 1;
+                    }
+
+                    // d_{self} - default_demand - bess_ch <= 0
+                    {
+                        unsigned int row_ID = start_row_ID_temp + constr_iter;
+                        unsigned int col_ID;
+                        std::string var_name;
+
+                        var_name = "demand_self";
+                        col_ID = start_col_ID + variable_num_single * agent_iter + this->variable.ID[var_name];
+                        alglib::sparseset(constraint_general, row_ID, col_ID, 1.);
+
+                        var_name = "default_demand";
+                        col_ID = start_col_ID + variable_num_single * agent_iter + this->variable.ID[var_name];
+                        alglib::sparseset(constraint_general, row_ID, col_ID, -1.);
+
+                        var_name = "bess_ch";
+                        col_ID = start_col_ID + variable_num_single * agent_iter + this->variable.ID[var_name];
+                        alglib::sparseset(constraint_general, row_ID, col_ID, -1.);
+
+                        bound_general[0][row_ID] = -std::numeric_limits<double>::infinity();
+                        bound_general[1][row_ID] = 0.;
+                        constr_iter += 1;
                     }
 
                     // soc = soc_{free} + soc_{ref}
                     {
-                        unsigned int row_ID = start_row_ID_temp + 3;
+                        unsigned int row_ID = start_row_ID_temp + constr_iter;
                         unsigned int col_ID;
                         std::string var_name;
 
@@ -242,6 +284,10 @@ class scheduler_class{
                         var_name = "soc_ref";
                         col_ID = start_col_ID + variable_num_single * agent_iter + this->variable.ID[var_name];
                         alglib::sparseset(constraint_general, row_ID, col_ID, -1.);
+
+                        bound_general[0][row_ID] = 0.;
+                        bound_general[1][row_ID] = 0.;
+                        constr_iter += 1;
                     }
 
                     // Accounting components of res, demand, ch, dc, soc
@@ -259,7 +305,7 @@ class scheduler_class{
                         physical_components[4] = "soc";
 
                         for(unsigned int physical_iter = 0; physical_iter < physical_components.size(); ++ physical_iter){
-                            unsigned int row_ID = start_row_ID_temp + 4 + physical_iter;
+                            unsigned int row_ID = start_row_ID_temp + constr_iter;
                             unsigned int col_ID;
 
                             col_ID = start_col_ID + variable_num_single * agent_iter + this->variable.ID[physical_components[physical_iter]];
@@ -270,12 +316,16 @@ class scheduler_class{
                                 col_ID = start_col_ID + variable_num_single * agent_iter + this->variable.ID[var_name_temp];
                                 alglib::sparseset(constraint_general, row_ID, col_ID, -1.);
                             }
+
+                            bound_general[0][row_ID] = 0.;
+                            bound_general[1][row_ID] = 0.;
+                            constr_iter += 1;
                         }
                     }
 
                     // Physical components of self, lem, rer, cer of supply
                     for(unsigned int account_iter = 0; account_iter < account_components.size(); ++ account_iter){
-                        unsigned int row_ID = start_row_ID_temp + 9 + account_iter;
+                        unsigned int row_ID = start_row_ID_temp + constr_iter;
                         unsigned int col_ID;
                         std::string var_name;
 
@@ -296,11 +346,15 @@ class scheduler_class{
                         var_name = "bess_dc_" + account_components[account_iter];
                         col_ID = start_col_ID + variable_num_single * agent_iter + this->variable.ID[var_name];
                         alglib::sparseset(constraint_general, row_ID, col_ID, -1.);
+
+                        bound_general[0][row_ID] = 0.;
+                        bound_general[1][row_ID] = 0.;
+                        constr_iter += 1;
                     }
 
                     // Physical components of self, lem, rer, cer of demand
                     for(unsigned int account_iter = 0; account_iter < account_components.size(); ++ account_iter){
-                        unsigned int row_ID = start_row_ID_temp + 13 + account_iter;
+                        unsigned int row_ID = start_row_ID_temp + constr_iter;
                         unsigned int col_ID;
                         std::string var_name;
 
@@ -315,23 +369,25 @@ class scheduler_class{
                         var_name = "bess_ch_" + account_components[account_iter];
                         col_ID = start_col_ID + variable_num_single * agent_iter + this->variable.ID[var_name];
                         alglib::sparseset(constraint_general, row_ID, col_ID, -1.);
+
+                        bound_general[0][row_ID] = 0.;
+                        bound_general[1][row_ID] = 0.;
+                        constr_iter += 1;
                     }
 
                     // Dynamics of accounting components of soc
                     for(unsigned int account_iter = 0; account_iter < account_components.size(); ++ account_iter){
-                        unsigned int row_ID = start_row_ID_temp + 17 + account_iter;
+                        unsigned int row_ID = start_row_ID_temp + constr_iter;
                         unsigned int col_ID;
                         std::string var_name;
                         auto parameter = market.participants[agent_iter].get_parameters();
                         auto bess_param = std::get <std::map <std::string, std::variant <double, double_df>>> (parameter["bess"]);
                         auto efficiency = std::get <double> (bess_param["efficiency"]);
 
-                        if(tick > 0){
-                            var_name = "soc_" + account_components[account_iter];
-                            col_ID = start_col_ID + variable_num_single * agent_iter + this->variable.ID[var_name];
-                            col_ID -= variable_num_single;
-                            alglib::sparseset(constraint_general, row_ID, col_ID, 1.);
-                        }
+                        var_name = "soc_" + account_components[account_iter];
+                        col_ID = start_col_ID + variable_num_single * agent_iter + this->variable.ID[var_name];
+                        col_ID -= variable_num_single;
+                        alglib::sparseset(constraint_general, row_ID, col_ID, 1.);
 
                         var_name = "bess_ch_" + account_components[account_iter];
                         col_ID = start_col_ID + variable_num_single * agent_iter + this->variable.ID[var_name];
@@ -344,6 +400,10 @@ class scheduler_class{
                         var_name = "soc_" + account_components[account_iter];
                         col_ID = start_col_ID + variable_num_single * agent_iter + this->variable.ID[var_name];
                         alglib::sparseset(constraint_general, row_ID, col_ID, -1.);
+
+                        bound_general[0][row_ID] = 0.;
+                        bound_general[1][row_ID] = 0.;
+                        constr_iter += 1;
                     }
                 }
             }
@@ -351,14 +411,10 @@ class scheduler_class{
             // -------------------------------------------------------------------------------
             // Set boundary for equality constraints
             // -------------------------------------------------------------------------------
-            std::vector <double> bound_general(constraint_num);
-            for(ptrdiff_t constr_iter = 0; constr_iter < constraint_num; ++ constr_iter){
-                bound_general[constr_iter] = 0.;
-            }
             alglib::real_1d_array lb_general;
             alglib::real_1d_array ub_general;
-            lb_general.setcontent(bound_general.size(), bound_general.data());
-            ub_general.setcontent(bound_general.size(), bound_general.data());
+            lb_general.setcontent(bound_general[0].size(), bound_general[0].data());
+            ub_general.setcontent(bound_general[1].size(), bound_general[1].data());
 
             // -------------------------------------------------------------------------------
             // Set scale of variables
@@ -413,40 +469,98 @@ class scheduler_class{
                     // Indices of variables
                     unsigned int start_var_ID = variable_num_single * tick + 4;
                     start_var_ID *= market.participants.size();
+                    unsigned int var_iter = 0;
 
                     // Aggregated accounting components have no constraints other than non-negativity
                     for(unsigned int var_iter = 0; var_iter < this->variable.ID["conv"]; ++ var_iter){
                         unsigned int var_ID = start_var_ID + variable_num_single * agent_iter + var_iter;
                         bound_box[0][var_ID] = 0.;
                         bound_box[1][var_ID] = std::numeric_limits<double>::infinity();
+                        var_iter += 1;
                     }
 
                     // Box constraints of physical constraints
                     {
                         unsigned int var_ID;
                         std::string var_name;
+                        auto parameter = market.participants[agent_iter].get_parameters();
+                        auto bess_param = std::get <std::map <std::string, std::variant <double, double_df>>> (parameter["bess"]);
+                        auto capacity = std::get <double> (bess_param["capacity"]);
+                        auto energy = std::get <double> (bess_param["energy"]);
+                        auto efficiency = std::get <double> (bess_param["efficiency"]);
 
                         var_name = "conv";
                         var_ID = start_var_ID + variable_num_single * agent_iter + this->variable.ID[var_name];
                         bound_box[0][var_ID] = 0.;
                         bound_box[1][var_ID] = market.participants[agent_iter].get_prediction_value("conv_generation", tick);
+                        var_iter += 1;
 
                         var_name = "res";
                         var_ID = start_var_ID + variable_num_single * agent_iter + this->variable.ID[var_name];
                         bound_box[0][var_ID] = 0.;
                         bound_box[1][var_ID] = market.participants[agent_iter].get_prediction_value("res_generation", tick);
+                        var_iter += 1;
 
                         var_name = "default_demand";
                         var_ID = start_var_ID + variable_num_single * agent_iter + this->variable.ID[var_name];
                         bound_box[0][var_ID] = 0.;
                         bound_box[1][var_ID] = market.participants[agent_iter].get_prediction_value("default_demand", tick);
+                        var_iter += 1;
+
+                        var_name = "bess_ch";
+                        var_ID = start_var_ID + variable_num_single * agent_iter + this->variable.ID[var_name];
+                        bound_box[0][var_ID] = 0.;
+                        bound_box[1][var_ID] = capacity / efficiency;
+                        var_iter += 1;
+
+                        var_name = "bess_dc";
+                        var_ID = start_var_ID + variable_num_single * agent_iter + this->variable.ID[var_name];
+                        bound_box[0][var_ID] = 0.;
+                        bound_box[1][var_ID] = capacity * efficiency;
+                        var_iter += 1;
+
+                        var_name = "soc";
+                        var_ID = start_var_ID + variable_num_single * agent_iter + this->variable.ID[var_name];
+                        bound_box[0][var_ID] = 0.;
+                        bound_box[1][var_ID] = energy;
+                        var_iter += 1;
+                    }
+
+                    // Box constraints of soc_{free} and soc_{ref}
+                    {
+                        unsigned int var_ID;
+                        std::string var_name;
+                        auto parameter = market.participants[agent_iter].get_parameters();
+                        auto bess_param = std::get <std::map <std::string, std::variant <double, double_df>>> (parameter["bess"]);
+                        auto energy = std::get <double> (bess_param["energy"]);
+                        auto ref_ratio = std::get <double> (bess_param["ref_ratio"]);
+
+                        var_name = "soc_free";
+                        var_ID = start_var_ID + variable_num_single * agent_iter + this->variable.ID[var_name];
+                        bound_box[0][var_ID] = 0.;
+                        bound_box[1][var_ID] = energy;
+                        var_iter += 1;
+
+                        var_name = "soc_ref";
+                        var_ID = start_var_ID + variable_num_single * agent_iter + this->variable.ID[var_name];
+                        bound_box[0][var_ID] = 0.;
+                        bound_box[1][var_ID] = ref_ratio * energy;
+                        var_iter += 1;
+                    }
+
+                    // Rest of the variables are unconstrained besides non-negativity
+                    while(var_iter < variable_num_single){
+                        unsigned int var_ID = start_var_ID + variable_num_single * agent_iter + var_iter;
+                        bound_box[0][var_ID] = 0.;
+                        bound_box[1][var_ID] = std::numeric_limits<double>::infinity();
+                        var_iter += 1;
                     }
                 }
             }
-//            alglib::real_1d_array lb_box;
-//            alglib::real_1d_array ub_box;
-//            lb_box.setcontent(bound_box[0].size(), bound_box[0].data());
-//            ub_box.setcontent(bound_box[1].size(), bound_box[1].data());
+            alglib::real_1d_array lb_box;
+            alglib::real_1d_array ub_box;
+            lb_box.setcontent(bound_box[0].size(), bound_box[0].data());
+            ub_box.setcontent(bound_box[1].size(), bound_box[1].data());
 
             // -------------------------------------------------------------------------------
             // Set objective coefficients of variables

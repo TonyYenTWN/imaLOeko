@@ -89,6 +89,7 @@ class market_participant_class{
                 // Capability
                 bess_par["energy"] = (double) 0.;
                 bess_par["capacity"] = (double) 0.;
+                bess_par["ref_ratio"] = (double) 0.;
                 bess_par["efficiency"] = (double) 1.;
 
                 // Initial soc
