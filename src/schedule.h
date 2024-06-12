@@ -6,21 +6,9 @@
 
 // Included external source and headers
 #include <alglib/optimization.h>
-//#include <Eigen/Dense>
-//#include <Eigen/Sparse>
 
 // Project specific
 #include "src/market.h"
-
-//#ifndef EIGEN_TYPES
-//#define EIGEN_TYPES
-//
-//namespace Eigen{
-//    typedef Eigen::Matrix<ptrdiff_t, Eigen::Dynamic, 1> VectorXpd;
-////    typedef Eigen::Triplet <double> TripletXd;
-//}
-//
-//#endif
 
 class scheduler_class{
     private:
