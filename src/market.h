@@ -2,6 +2,7 @@
 #pragma once
 
 // STL
+#include <any>
 #include <map>
 #include <variant>
 #include <vector>
@@ -11,40 +12,83 @@
 
 typedef std::map <std::string, double> double_df;
 typedef std::map <std::string, std::vector <double>> double_vec_df;
+typedef std::map <std::string, std::any> dataset;
 
 #endif
 
-class market_information_class{
-    private:
-        std::map <std::string, std::variant <unsigned int, double>> parameter;
-        double_vec_df prediction;
+class basic_data_class{
+    protected:
+        dataset data;
 
     public:
+        auto get_value_ptr(std::vector <std::string> keys){
+            std::vector <dataset::iterator> data_iter(keys.size());
+
+            for (data_iter[0] = this->data.begin(); data_iter[0] != this->data.end(); ++ data_iter[0]){
+                if(data_iter[0]->first == keys[0]){
+                    break;
+                }
+            }
+
+            for(unsigned int level_iter = 1; level_iter < keys.size(); ++ level_iter){
+                dataset* data_temp = std::any_cast <dataset> (&data_iter[level_iter - 1]->second);
+
+                for(data_iter[level_iter] = data_temp->begin(); data_iter[level_iter] != data_temp->end(); ++ data_iter[level_iter]){
+                    if(data_iter[level_iter]->first == keys[level_iter]){
+                        break;
+                    }
+                }
+            }
+
+            auto result = &data_iter[keys.size() - 1]->second;
+            return result;
+        }
+
+        template <typename T>
+        auto get_vector_value(std::vector <std::string> keys, unsigned int ID){
+            std::vector <T> vec = std::any_cast <std::vector <T>> (*this->get_value_ptr(keys));
+            auto result = vec[ID];
+
+            return result;
+        }
+
+        void update_value(std::vector <std::string> keys, auto value){
+            auto value_ptr = this->get_value_ptr(keys);
+            *value_ptr = value;
+        }
+};
+
+class market_information_class: public basic_data_class{
+    public:
         market_information_class(){
-            this->parameter["num_interval"] = (unsigned int) 0;
-            this->parameter["price_inflex_demand"] = (double) 3000.;
+            // Set parameters
+            dataset parameter;
+            parameter["num_interval"] = (unsigned int) 0;
+            parameter["price_inflex_demand"] = (double) 3000.;
+            this->data["parameter"] = parameter;
 
+            // Set prediction
+            dataset prediction;
             std::vector <double> vec_double;
-            this->prediction["time_length"] = vec_double;
-            this->prediction["electricity_price"] = vec_double;
-        }
-
-        std::variant <unsigned int, double> get_parameter_values(std::string key){
-            return this->parameter[key];
-        }
-
-        std::vector <double> get_prediction_values(std::string key){
-            return this->prediction[key];
+            prediction["time_length"] = vec_double;
+            prediction["electricity_price"] = vec_double;
+            this->data["prediction"] = prediction;
         }
 
         // Test the program
         void test(){
+            std::vector <std::string> keys;
+
             // Insert time length (in hours)
             // 12 5-min time intervals + 23 1-hour intervals
-            std::vector <double> time_length;
             unsigned int num_short_range = 12;
             unsigned int num_long_range = 23;
-            this->parameter["num_interval"] = num_short_range + num_long_range;
+            keys = std::vector <std::string> (2);
+            keys[0] = "parameter";
+            keys[1] = "num_interval";
+            this->update_value(keys, num_short_range + num_long_range);
+
+            std::vector <double> time_length;
             time_length.reserve(num_short_range + num_long_range);
             for(unsigned int short_iter = 0; short_iter < num_short_range; ++ short_iter){
                 time_length.push_back(1. / 12.);
@@ -52,7 +96,10 @@ class market_information_class{
             for(unsigned int short_iter = 0; short_iter < num_short_range; ++ short_iter){
                 time_length.push_back(1.);
             }
-            this->prediction["time_length"] = time_length;
+            keys = std::vector <std::string> (2);
+            keys[0] = "prediction";
+            keys[1] = "time_length";
+            this->update_value(keys, time_length);
 
             // Insert electricity prices
             std::vector <double> electricity_price;
@@ -60,65 +107,71 @@ class market_information_class{
             for(unsigned int tick = 0; tick < time_length.size(); ++ tick){
                 electricity_price.push_back(10.);
             }
-            this->prediction["electricity_price"] = electricity_price;
+            keys = std::vector <std::string> (2);
+            keys[0] = "prediction";
+            keys[1] = "electricity_price";
+            this->update_value(keys, electricity_price);
         }
 };
 
-class market_participant_class{
-    private:
-        std::map <std::string, std::variant <unsigned int, double_df, std::map <std::string, std::variant <double, double_df>>>> parameter;
-        double_vec_df prediction;
-        std::map <std::string, std::variant <std::vector <double>, double_vec_df, std::map <std::string, double_vec_df>>> schedule, actual;
-
+class market_participant_class: public basic_data_class{
     public:
         // Constructor function
         market_participant_class(unsigned int participant_type){
+            std::vector <double> vec_double;
+
+            // Set parameters
+            dataset parameter;
+
             // Participant type: 0 = cer; 1 = rer; 2 = ordinary prosumer; 3 = res prosumer; 4 = local prosumer
-            this->parameter["type"] = (unsigned int) participant_type;
+            parameter["type"] = (unsigned int) participant_type;
 
             // Premium of different electricity sources
-            double_df premium;
+            dataset premium;
             premium["res"] = 0.;
             premium["lem"] = 0.;
             premium["self"] = 0.;
-            this->parameter["premium"] = premium;
+            parameter["premium"] = premium;
 
             // Technical parameters of BESS
-            std::map <std::string, std::variant <double, double_df>> bess_par;
+            dataset bess_par;
             {
                 // Capability
                 bess_par["energy"] = (double) 0.;
                 bess_par["capacity"] = (double) 0.;
                 bess_par["ref_ratio"] = (double) 0.;
                 bess_par["efficiency"] = (double) 1.;
+                bess_par["ref_coeff"] = vec_double;
 
                 // Initial soc
-                double_df initial_soc;
-                initial_soc["self"] = 0.;
-                initial_soc["lem"] = 0.;
-                initial_soc["rer"] = 0.;
-                initial_soc["cer"] = 0.;
+                dataset initial_soc;
+                initial_soc["self"] = (double) 0.;
+                initial_soc["lem"] = (double) 0.;
+                initial_soc["rer"] = (double) 0.;
+                initial_soc["cer"] = (double) 0.;
                 bess_par["initial_soc"] = initial_soc;
             }
-            this->parameter["bess"] = bess_par;
+            parameter["bess"] = bess_par;
+            this->data["parameter"] = parameter;
 
             // Prediction
-            std::vector <double> vec_double;
-            this->prediction["default_demand"] = vec_double;
-            this->prediction["res_generation"] = vec_double;
-            this->prediction["conv_generation"] = vec_double;
+            dataset prediction;
+            prediction["default_demand"] = vec_double;
+            prediction["res_generation"] = vec_double;
+            prediction["conv_generation"] = vec_double;
+            this->data["prediction"] = prediction;
 
             // Schedule and actual operation for optimization
             // Operation of BESS
-            std::map <std::string, std::variant <std::vector <double>, double_vec_df, std::map <std::string, double_vec_df>>> operation;
+            dataset operation;
 
-            double_vec_df accounting;
+            dataset accounting;
             accounting["self"] = vec_double;
             accounting["lem"] = vec_double;
             accounting["rer"] = vec_double;
             accounting["cer"] = vec_double;
 
-            std::map <std::string, double_vec_df> bess_var;
+            dataset bess_var;
             {
                 bess_var["ch"] = accounting;
                 bess_var["dc"] = accounting;
@@ -134,36 +187,45 @@ class market_participant_class{
             // Operation of non-RES
             operation["conv_generation"] = vec_double;
 
-            this->schedule = operation;
-            this->actual = operation;
-        }
-
-        std::map <std::string, std::variant <unsigned int, double_df, std::map <std::string, std::variant <double, double_df>>>> get_parameters(){
-            return this->parameter;
-        }
-
-        double get_prediction_value(std::string key, unsigned int tick){
-            return this->prediction[key][tick];
+            this->data["schedule"] = operation;
+            this->data["actual"] = operation;
         }
 
         // Test the program
-        void test(unsigned int num_time, market_information_class &information){
-            auto participant_type = std::get <unsigned int> (this->parameter["type"]);
-            auto time_length = information.get_prediction_values("time_length");
+        void test(market_information_class &information){
+            std::vector <std::string> keys;
+
+            keys = std::vector <std::string> (2);
+            keys[0] = "parameter";
+            keys[1] = "num_interval";
+            auto num_interval = std::any_cast <unsigned int> (*information.get_value_ptr(keys));
+
+            keys = std::vector <std::string> (2);
+            keys[0] = "prediction";
+            keys[1] = "time_length";
+            auto time_length = std::any_cast <std::vector <double>> (*information.get_value_ptr(keys));
+
+            keys = std::vector <std::string> (2);
+            keys[0] = "parameter";
+            keys[1] = "type";
+            auto participant_type = std::any_cast <unsigned int> (*this->get_value_ptr(keys));
 
             std::vector <double> default_demand;
-            default_demand.reserve(num_time);
+            default_demand.reserve(num_interval);
             std::vector <double> conv_generation;
-            conv_generation.reserve(num_time);
+            conv_generation.reserve(num_interval);
             std::vector <double> res_generation;
-            res_generation.reserve(num_time);
+            res_generation.reserve(num_interval);
+            std::vector <double> ref_coeff;
+            ref_coeff.reserve(num_interval);
 
             // Insert default demand for prosumers
             if(participant_type >= 2){
-                for(unsigned int tick = 0; tick < num_time; ++ tick){
+                for(unsigned int tick = 0; tick < num_interval; ++ tick){
                     double demand_temp = 1.;
                     double res_temp = 0.;
                     double conv_temp = 0.;
+                    double ref_coeff_temp = 0.;
 
                     demand_temp *= time_length[tick];
                     default_demand.push_back(demand_temp);
@@ -171,16 +233,18 @@ class market_participant_class{
                     conv_generation.push_back(conv_temp);
                     res_temp *= time_length[tick];
                     res_generation.push_back(res_temp);
+                    ref_coeff.push_back(ref_coeff_temp);
                 }
             }
             // Insert default demand for retailers
             else{
                 // Non-RES retailer
                 if(participant_type == 0){
-                    for(unsigned int tick = 0; tick < num_time; ++ tick){
+                    for(unsigned int tick = 0; tick < num_interval; ++ tick){
                         double demand_temp = 0.;
                         double res_temp = 0.;
                         double conv_temp = 1.;
+                        double ref_coeff_temp = 0.;
 
                         demand_temp *= time_length[tick];
                         default_demand.push_back(demand_temp);
@@ -188,14 +252,16 @@ class market_participant_class{
                         conv_generation.push_back(conv_temp);
                         res_temp *= time_length[tick];
                         res_generation.push_back(res_temp);
+                        ref_coeff.push_back(ref_coeff_temp);
                     }
                 }
                 // RES retailer
                 else{
-                    for(unsigned int tick = 0; tick < num_time; ++ tick){
+                    for(unsigned int tick = 0; tick < num_interval; ++ tick){
                         double demand_temp = 0.;
                         double res_temp = .5;
                         double conv_temp = 0.;
+                        double ref_coeff_temp = 0.;
 
                         demand_temp *= time_length[tick];
                         default_demand.push_back(demand_temp);
@@ -203,14 +269,27 @@ class market_participant_class{
                         conv_generation.push_back(conv_temp);
                         res_temp *= time_length[tick];
                         res_generation.push_back(res_temp);
+                        ref_coeff.push_back(ref_coeff_temp);
                     }
                 }
             }
 
+            // Store parameter time series
+            keys = std::vector <std::string> (3);
+            keys[0] = "parameter";
+            keys[1] = "bess";
+            keys[2] = "ref_coeff";
+            this->update_value(keys, ref_coeff);
+
             // Store prediction time series
-            this->prediction["default_demand"] = default_demand;
-            this->prediction["res_generation"] = res_generation;
-            this->prediction["conv_generation"] = conv_generation;
+            keys = std::vector <std::string> (2);
+            keys[0] = "prediction";
+            keys[1] = "default_demand";
+            this->update_value(keys, default_demand);
+            keys[1] = "res_generation";
+            this->update_value(keys, res_generation);
+            keys[1] = "conv_generation";
+            this->update_value(keys, conv_generation);
         }
 };
 
@@ -231,7 +310,8 @@ class market_class{
             participants.push_back(res);
             participants.push_back(conv);
             this->participants = participants;
-            this->participants[0].test(std::get <unsigned int> (this->information.get_parameter_values("num_interval")), this->information);
-            this->participants[1].test(std::get <unsigned int> (this->information.get_parameter_values("num_interval")), this->information);
+            for(unsigned int agent_iter = 0; agent_iter < this->participants.size(); ++ agent_iter){
+                this->participants[agent_iter].test(this->information);
+            }
         }
 };
