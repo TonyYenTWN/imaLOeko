@@ -82,7 +82,12 @@ class scheduler_class{
             // -------------------------------------------------------------------------------
             // LP Solver initialization for copper plate market optimization
             // -------------------------------------------------------------------------------
-            unsigned int num_interval = std::get <unsigned int> (market.information.get_parameter_values("num_interval"));
+            std::vector <std::string> keys;
+
+            keys = std::vector <std::string> (2);
+            keys[0] = "parameter";
+            keys[1] = "num_interval";
+            auto num_interval = std::any_cast <unsigned int> (*market.information.get_value_ptr(keys));
             unsigned int variable_num_single = this->variable.name.size();
             unsigned int variable_num = variable_num_single * num_interval + 4;
             variable_num *= market.participants.size();
@@ -368,9 +373,12 @@ class scheduler_class{
                         unsigned int row_ID = start_row_ID_temp + constr_iter;
                         unsigned int col_ID;
                         std::string var_name;
-                        auto parameter = market.participants[agent_iter].get_parameters();
-                        auto bess_param = std::get <std::map <std::string, std::variant <double, double_df>>> (parameter["bess"]);
-                        auto efficiency = std::get <double> (bess_param["efficiency"]);
+
+                        keys = std::vector <std::string> (3);
+                        keys[0] = "parameter";
+                        keys[1] = "bess";
+                        keys[2] = "efficiency";
+                        auto efficiency = std::any_cast <double> (*market.participants[agent_iter].get_value_ptr(keys));
 
                         var_name = "soc_" + account_components[account_iter];
                         col_ID = start_col_ID + variable_num_single * agent_iter + this->variable.ID[var_name];
@@ -422,22 +430,40 @@ class scheduler_class{
             // -------------------------------------------------------------------------------
             // Solve the LP for copper plate market optimization
             // -------------------------------------------------------------------------------
-            unsigned int num_interval = std::get <unsigned int> (market.information.get_parameter_values("num_interval"));
+            std::vector <std::string> keys;
+
+            keys = std::vector <std::string> (2);
+            keys[0] = "parameter";
+            keys[1] = "num_interval";
+            auto num_interval = std::any_cast <unsigned int> (*market.information.get_value_ptr(keys));
+
             unsigned int variable_num = this->variable.number;
             unsigned int variable_num_single = this->variable.name.size();
 
             // -------------------------------------------------------------------------------
-            // Set boundary for box constraints
+            // Set boundary for box constraints and obj values
             // -------------------------------------------------------------------------------
             std::vector <std::vector <double>> bound_box(2);
             bound_box[0] = std::vector <double> (variable_num);
             bound_box[1] = std::vector <double> (variable_num);
+            std::vector <double> obj_vec(variable_num);
+
+            // Set default values for vectors
+            // Default box constraint = non-negativity
+            // Default objective value = 0
+            for(unsigned int var_iter = 0; var_iter < variable_num; ++ var_iter){
+                bound_box[0][var_iter] = 0.;
+                bound_box[1][var_iter] = std::numeric_limits<double>::infinity();
+                obj_vec[var_iter] = 0.;
+            }
 
             // Boundaries for initial SOC
             for(unsigned int agent_iter = 0; agent_iter < market.participants.size(); ++ agent_iter){
-                auto parameter = market.participants[agent_iter].get_parameters();
-                auto bess_param = std::get <std::map <std::string, std::variant <double, double_df>>> (parameter["bess"]);
-                auto initial_soc = std::get <double_df> (bess_param["initial_soc"]);
+                keys = std::vector <std::string> (3);
+                keys[0] = "parameter";
+                keys[1] = "bess";
+                keys[2] = "initial_soc";
+                auto initial_soc = std::any_cast <dataset> (*market.participants[agent_iter].get_value_ptr(keys));
 
                 std::vector <std::string> account_components(4);
                 account_components[0] = "self";
@@ -447,8 +473,8 @@ class scheduler_class{
 
                 for(unsigned int account_iter = 0; account_iter < account_components.size(); ++ account_iter){
                     unsigned int var_ID = 4 * agent_iter + account_iter;
-                    bound_box[0][var_ID] = initial_soc[account_components[account_iter]];
-                    bound_box[1][var_ID] = initial_soc[account_components[account_iter]];
+                    bound_box[0][var_ID] = std::any_cast <double> (initial_soc[account_components[account_iter]]);
+                    bound_box[1][var_ID] = std::any_cast <double> (initial_soc[account_components[account_iter]]);
                 }
             }
 
@@ -457,102 +483,104 @@ class scheduler_class{
                     // Indices of variables
                     unsigned int start_var_ID = variable_num_single * tick + 4;
                     start_var_ID *= market.participants.size();
-                    unsigned int var_iter = 0;
 
-                    // Aggregated accounting components have no constraints other than non-negativity
-                    for(unsigned int var_iter = 0; var_iter < this->variable.ID["conv"]; ++ var_iter){
-                        unsigned int var_ID = start_var_ID + variable_num_single * agent_iter + var_iter;
-                        bound_box[0][var_ID] = 0.;
-                        bound_box[1][var_ID] = std::numeric_limits<double>::infinity();
-                        var_iter += 1;
-                    }
-
-                    // Box constraints of physical constraints
+                    // Box constraints and obj values of physical constraints
                     {
                         unsigned int var_ID;
                         std::string var_name;
-                        auto parameter = market.participants[agent_iter].get_parameters();
-                        auto bess_param = std::get <std::map <std::string, std::variant <double, double_df>>> (parameter["bess"]);
-                        auto capacity = std::get <double> (bess_param["capacity"]);
-                        auto energy = std::get <double> (bess_param["energy"]);
-                        auto efficiency = std::get <double> (bess_param["efficiency"]);
+
+                        keys = std::vector <std::string> (3);
+                        keys[0] = "parameter";
+                        keys[1] = "bess";
+                        keys[2] = "capacity";
+                        auto capacity = std::any_cast <double> (*market.participants[agent_iter].get_value_ptr(keys));
+                        keys[2] = "energy";
+                        auto energy = std::any_cast <double> (*market.participants[agent_iter].get_value_ptr(keys));
+                        keys[2] = "efficiency";
+                        auto efficiency = std::any_cast <double> (*market.participants[agent_iter].get_value_ptr(keys));
+
+                        keys = std::vector <std::string> (2);
+                        keys[0] = "prediction";
+                        keys[1] = "time_length";
+                        auto time_length_temp = market.information.get_vector_value <double> (keys, tick);
+                        keys[1] = "electricity_price";
+                        auto electricity_price_temp = market.information.get_vector_value <double> (keys, tick);
+                        keys[1] = "conv_generation";
+                        auto conv_generation_temp = market.participants[agent_iter].get_vector_value <double> (keys, tick);
+                        keys[1] = "res_generation";
+                        auto res_generation_temp = market.participants[agent_iter].get_vector_value <double> (keys, tick);
+                        keys[1] = "default_demand";
+                        auto default_demand_temp = market.participants[agent_iter].get_vector_value <double> (keys, tick);
 
                         var_name = "conv";
                         var_ID = start_var_ID + variable_num_single * agent_iter + this->variable.ID[var_name];
-                        bound_box[0][var_ID] = 0.;
-                        bound_box[1][var_ID] = market.participants[agent_iter].get_prediction_value("conv_generation", tick);
-                        var_iter += 1;
+                        bound_box[1][var_ID] = conv_generation_temp;
+                        obj_vec[var_ID] = electricity_price_temp;
 
                         var_name = "res";
                         var_ID = start_var_ID + variable_num_single * agent_iter + this->variable.ID[var_name];
-                        bound_box[0][var_ID] = 0.;
-                        bound_box[1][var_ID] = market.participants[agent_iter].get_prediction_value("res_generation", tick);
-                        var_iter += 1;
+                        bound_box[1][var_ID] = res_generation_temp;
 
                         var_name = "default_demand";
                         var_ID = start_var_ID + variable_num_single * agent_iter + this->variable.ID[var_name];
-                        bound_box[0][var_ID] = 0.;
-                        bound_box[1][var_ID] = market.participants[agent_iter].get_prediction_value("default_demand", tick);
-                        var_iter += 1;
+                        bound_box[1][var_ID] = default_demand_temp;
 
                         var_name = "bess_ch";
                         var_ID = start_var_ID + variable_num_single * agent_iter + this->variable.ID[var_name];
-                        bound_box[0][var_ID] = 0.;
-                        bound_box[1][var_ID] = capacity / efficiency;
-                        var_iter += 1;
+                        bound_box[1][var_ID] = capacity / efficiency * time_length_temp;
 
                         var_name = "bess_dc";
                         var_ID = start_var_ID + variable_num_single * agent_iter + this->variable.ID[var_name];
-                        bound_box[0][var_ID] = 0.;
-                        bound_box[1][var_ID] = capacity * efficiency;
-                        var_iter += 1;
+                        bound_box[1][var_ID] = capacity * efficiency * time_length_temp;
 
                         var_name = "soc";
                         var_ID = start_var_ID + variable_num_single * agent_iter + this->variable.ID[var_name];
-                        bound_box[0][var_ID] = 0.;
                         bound_box[1][var_ID] = energy;
-                        var_iter += 1;
                     }
 
-                    // Box constraints of soc_{free} and soc_{ref}
+                    // Box constraints and objective values of soc_{ref}
                     {
                         unsigned int var_ID;
                         std::string var_name;
-                        auto parameter = market.participants[agent_iter].get_parameters();
-                        auto bess_param = std::get <std::map <std::string, std::variant <double, double_df>>> (parameter["bess"]);
-                        auto energy = std::get <double> (bess_param["energy"]);
-                        auto ref_ratio = std::get <double> (bess_param["ref_ratio"]);
 
-                        var_name = "soc_free";
-                        var_ID = start_var_ID + variable_num_single * agent_iter + this->variable.ID[var_name];
-                        bound_box[0][var_ID] = 0.;
-                        bound_box[1][var_ID] = energy;
-                        var_iter += 1;
+                        keys = std::vector <std::string> (3);
+                        keys[0] = "parameter";
+                        keys[1] = "bess";
+                        keys[2] = "energy";
+                        auto energy = std::any_cast <double> (*market.participants[agent_iter].get_value_ptr(keys));
+                        keys[2] = "ref_ratio";
+                        auto ref_ratio = std::any_cast <double> (*market.participants[agent_iter].get_value_ptr(keys));
+                        keys[2] = "ref_coeff";
+                        auto ref_coeff_temp = market.participants[agent_iter].get_vector_value <double> (keys, tick);
 
                         var_name = "soc_ref";
                         var_ID = start_var_ID + variable_num_single * agent_iter + this->variable.ID[var_name];
-                        bound_box[0][var_ID] = 0.;
                         bound_box[1][var_ID] = ref_ratio * energy;
-                        var_iter += 1;
+                        obj_vec[var_ID] = ref_coeff_temp;
                     }
-
-                    // Rest of the variables are unconstrained besides non-negativity
-                    while(var_iter < variable_num_single){
-                        unsigned int var_ID = start_var_ID + variable_num_single * agent_iter + var_iter;
-                        bound_box[0][var_ID] = 0.;
-                        bound_box[1][var_ID] = std::numeric_limits<double>::infinity();
-                        var_iter += 1;
-                    }
+//
+//                    // Objective values of various accounting components
+//
+////                    // Rest of the variables are unconstrained besides non-negativity
+////                    while(var_iter < variable_num_single){
+////                        unsigned int var_ID = start_var_ID + variable_num_single * agent_iter + var_iter;
+////                        bound_box[0][var_ID] = 0.;
+////                        bound_box[1][var_ID] = std::numeric_limits<double>::infinity();
+////                        var_iter += 1;
+////                    }
                 }
             }
             alglib::real_1d_array lb_box;
             alglib::real_1d_array ub_box;
             lb_box.setcontent(bound_box[0].size(), bound_box[0].data());
             ub_box.setcontent(bound_box[1].size(), bound_box[1].data());
+            alglib::minlpsetbc(this->Problem, lb_box, ub_box);
 
             // -------------------------------------------------------------------------------
             // Set objective coefficients of variables
             // -------------------------------------------------------------------------------
-
+            alglib::real_1d_array obj_coeff;
+            obj_coeff.setcontent(obj_vec.size(), obj_vec.data());
+            alglib::minlpsetcost(this->Problem, obj_coeff);
         }
 };

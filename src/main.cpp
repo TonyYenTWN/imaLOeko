@@ -13,4 +13,5 @@ int main(int argc, char* argv[]){
     market.test();
     scheduler_class scheduler;
     scheduler.LP_set(market);
+    scheduler.LP_solve(market);
 }
