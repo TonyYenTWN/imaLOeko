@@ -90,13 +90,12 @@ for(sub_dir_iter in 1:length(sub_dir_name)){
   
   src_files <- c(src_files, src_files_temp)
 }
-src_files <- list.files(paste(dir, "/", sep = ""), recursive = TRUE)
 text_temp <- "OBJ_COMPILE ="
 for(file_iter in 1:length(src_files)){
   if(strsplit(src_files[file_iter], ".cpp")[[1]][1] != src_files[file_iter]){
     obj_name_temp = strsplit(src_files[file_iter], ".cpp")[[1]][1]
     text_temp <- paste(text_temp, " $(OBJDIR_COMPILE)/", obj_name_temp, ".o", sep = "")
-  }else if(strsplit(src_files[file_iter], ".c")[[1]][1] != src_files[file_iter]){
+  }else if(strsplit(src_files[file_iter], "\\.c")[[1]][1] != src_files[file_iter]){
     obj_name_temp = strsplit(src_files[file_iter], ".c")[[1]][1]
     text_temp <- paste(text_temp, " $(OBJDIR_COMPILE)/", obj_name_temp, ".o", sep = "")
   }
