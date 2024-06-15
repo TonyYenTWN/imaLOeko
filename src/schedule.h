@@ -480,6 +480,11 @@ class scheduler_class{
 
             for(unsigned int tick = 0; tick < num_interval; ++ tick){
                 for(unsigned int agent_iter = 0; agent_iter < market.participants.size(); ++ agent_iter){
+                    keys = std::vector <std::string> (2);
+                    keys[0] = "parameter";
+                    keys[1] = "type";
+                    auto type_ID = std::any_cast <unsigned int> (*market.participants[agent_iter].get_value_ptr(keys));
+
                     // Indices of variables
                     unsigned int start_var_ID = variable_num_single * tick + 4;
                     start_var_ID *= market.participants.size();
@@ -558,16 +563,162 @@ class scheduler_class{
                         bound_box[1][var_ID] = ref_ratio * energy;
                         obj_vec[var_ID] = ref_coeff_temp;
                     }
-//
-//                    // Objective values of various accounting components
-//
-////                    // Rest of the variables are unconstrained besides non-negativity
-////                    while(var_iter < variable_num_single){
-////                        unsigned int var_ID = start_var_ID + variable_num_single * agent_iter + var_iter;
-////                        bound_box[0][var_ID] = 0.;
-////                        bound_box[1][var_ID] = std::numeric_limits<double>::infinity();
-////                        var_iter += 1;
-////                    }
+
+                    // Objective values of various accounting components
+                    {
+                        unsigned int var_ID;
+                        std::string var_name;
+
+                        keys = std::vector <std::string> (2);
+                        keys[0] = "parameter";
+                        keys[1] = "price_inflex_demand";
+                        auto price_inflex_demand = std::any_cast <double> (*market.information.get_value_ptr(keys));
+
+                        keys = std::vector <std::string> (2);
+                        keys[0] = "prediction";
+                        keys[1] = "electricity_price";
+                        auto electricity_price_temp = market.information.get_vector_value <double> (keys, tick);
+
+                        keys = std::vector <std::string> (3);
+                        keys[0] = "parameter";
+                        keys[1] = "premium";
+                        keys[2] = "res";
+                        auto res_premium = std::any_cast <double> (*market.participants[agent_iter].get_value_ptr(keys));
+                        keys[2] = "lem";
+                        auto lem_premium = std::any_cast <double> (*market.participants[agent_iter].get_value_ptr(keys));
+                        keys[2] = "self";
+                        auto self_premium = std::any_cast <double> (*market.participants[agent_iter].get_value_ptr(keys));
+
+                        var_name = "res_self";
+                        var_ID = start_var_ID + variable_num_single * agent_iter + this->variable.ID[var_name];
+                        // Retailers don't self-prosume electricity
+                        // Marginal cost of res production from prosumers is 0
+                        if(type_ID < 2){
+                            bound_box[1][var_ID] = 0.;
+                            obj_vec[var_ID] = electricity_price_temp + res_premium;
+                        }
+
+                        var_name = "res_lem";
+                        var_ID = start_var_ID + variable_num_single * agent_iter + this->variable.ID[var_name];
+                        // CERs don't sell renewable energy
+                        // RERs participation in lem is allocated to res_rer
+                        // Marginal cost of res production from prosumers is 0
+                        if(type_ID < 2){
+                            bound_box[1][var_ID] = 0.;
+                            obj_vec[var_ID] = electricity_price_temp + res_premium;
+                        }
+
+                        var_name = "res_rer";
+                        var_ID = start_var_ID + variable_num_single * agent_iter + this->variable.ID[var_name];
+                        // CERs don't sell renewable energy
+                        // Marginal cost of res production from prosumers is 0
+                        if(type_ID < 2){
+                            if(type_ID == 0){
+                                bound_box[1][var_ID] = 0;
+                            }
+                            obj_vec[var_ID] = electricity_price_temp + res_premium;
+                        }
+
+                        var_name = "res_cer";
+                        var_ID = start_var_ID + variable_num_single * agent_iter + this->variable.ID[var_name];
+                        // CERs don't sell renewable energy
+                        // RERs don't sell renewable energy to normal market
+                        // Marginal cost of res production from prosumers is 0
+                        if(type_ID < 2){
+                            bound_box[1][var_ID] = 0.;
+                            obj_vec[var_ID] = electricity_price_temp + res_premium;
+                        }
+
+                        var_name = "default_demand_self";
+                        var_ID = start_var_ID + variable_num_single * agent_iter + this->variable.ID[var_name];
+                        // Retailers don't self-prosume electricity
+                        // Only prosumers have marginal utility for using electricity
+                        if(type_ID < 2){
+                            bound_box[1][var_ID] = 0.;
+                        }
+                        else{
+                            obj_vec[var_ID] = price_inflex_demand + res_premium + lem_premium + self_premium;
+                            obj_vec[var_ID] *= -1;
+                        }
+
+                        var_name = "default_demand_lem";
+                        var_ID = start_var_ID + variable_num_single * agent_iter + this->variable.ID[var_name];
+                        // Retailers participate in _rer or _cer
+                        // Only prosumers have marginal utility for using electricity
+                        if(type_ID < 2){
+                            bound_box[1][var_ID] = 0.;
+                        }
+                        else{
+                            obj_vec[var_ID] = price_inflex_demand + res_premium + lem_premium;
+                            obj_vec[var_ID] *= -1;
+                        }
+
+                        var_name = "default_demand_rer";
+                        var_ID = start_var_ID + variable_num_single * agent_iter + this->variable.ID[var_name];
+                        // CERs don't participate in _rer
+                        // marginal utility of retailers = price of selling electricity to consumers outside the lem
+                        if(type_ID < 2){
+                            if(type_ID == 0){
+                                bound_box[1][var_ID] = 0.;
+                            }
+                            obj_vec[var_ID] = electricity_price_temp + res_premium;
+                            obj_vec[var_ID] *= -1;
+                        }
+                        else{
+                            obj_vec[var_ID] = price_inflex_demand + res_premium;
+                            obj_vec[var_ID] *= -1;
+                        }
+
+                        var_name = "default_demand_cer";
+                        var_ID = start_var_ID + variable_num_single * agent_iter + this->variable.ID[var_name];
+                        // RERs don't participate in _cer
+                        // marginal utility of retailers = price of selling electricity to consumers outside the lem
+                        if(type_ID < 2){
+                            if(type_ID == 1){
+                                bound_box[1][var_ID] = 0;
+                            }
+                            obj_vec[var_ID] = electricity_price_temp + res_premium;
+                            obj_vec[var_ID] *= -1;
+                        }
+                        else{
+                            obj_vec[var_ID] = price_inflex_demand;
+                            obj_vec[var_ID] *= -1;
+                        }
+
+                        std::vector <std::string> bess_components(3);
+                        bess_components[0] = "bess_ch";
+                        bess_components[1] = "bess_dc";
+                        bess_components[2] = "soc";
+                        for(unsigned int component_iter = 0; component_iter < bess_components.size(); ++ component_iter){
+                            var_name = bess_components[component_iter] + "_self";
+                            var_ID = start_var_ID + variable_num_single * agent_iter + this->variable.ID[var_name];
+                            // Retailers don't self-prosume electricity
+                            if(type_ID < 2){
+                                bound_box[1][var_ID] = 0.;
+                            }
+
+                            var_name = bess_components[component_iter] + "_lem";
+                            var_ID = start_var_ID + variable_num_single * agent_iter + this->variable.ID[var_name];
+                            // Retailers participate in _rer or _cer
+                            if(type_ID < 2){
+                                bound_box[1][var_ID] = 0.;
+                            }
+
+                            var_name = bess_components[component_iter] + "_rer";
+                            var_ID = start_var_ID + variable_num_single * agent_iter + this->variable.ID[var_name];
+                            // CERs don't participate in _rer
+                            if(type_ID == 0){
+                                bound_box[1][var_ID] = 0.;
+                            }
+
+                            var_name = bess_components[component_iter] + "_cer";
+                            var_ID = start_var_ID + variable_num_single * agent_iter + this->variable.ID[var_name];
+                            // RERs don't participate in _rer
+                            if(type_ID == 1){
+                                bound_box[1][var_ID] = 0.;
+                            }
+                        }
+                    }
                 }
             }
             alglib::real_1d_array lb_box;
@@ -582,5 +733,10 @@ class scheduler_class{
             alglib::real_1d_array obj_coeff;
             obj_coeff.setcontent(obj_vec.size(), obj_vec.data());
             alglib::minlpsetcost(this->Problem, obj_coeff);
+
+            // -------------------------------------------------------------------------------
+            // Solve the problem
+            // -------------------------------------------------------------------------------
+            alglib::minlpoptimize(this->Problem);
         }
 };
