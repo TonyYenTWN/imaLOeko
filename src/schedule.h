@@ -787,11 +787,14 @@ class scheduler_class{
                             var_name = keys[1] + "_" + keys[2];
                             var_ID = start_var_ID + variable_num_single * agent_iter + this->variable.ID[var_name];
                             store_value = sol[var_ID];
-                            market.participants[agent_iter].update_vector_value <double> (keys, tick, store_value););
+                            market.participants[agent_iter].update_vector_value <double> (keys, tick, store_value);
+                            std::cout << agent_iter << "\t";
+                            std::cout << var_name << "\t";
+                            std::cout << tick << "\t";
+                            std::cout << store_value << "\t";
+                            std::cout << "\n";
                         }
                     }
-
-
                 }
             }
 
