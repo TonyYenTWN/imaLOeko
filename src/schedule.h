@@ -761,5 +761,39 @@ class scheduler_class{
             alglib::real_1d_array sol;
             alglib::minlpreport rep;
             minlpresults(this->Problem, sol, rep);
+            for(unsigned int tick = 0; tick < num_interval; ++ tick){
+                for(unsigned int agent_iter = 0; agent_iter < market.participants.size(); ++ agent_iter){
+                    std::vector <std::string> account_components(4);
+                    account_components[0] = "self";
+                    account_components[1] = "lem";
+                    account_components[2] = "rer";
+                    account_components[3] = "cer";
+
+                    // Indices of variables
+                    unsigned int start_var_ID = variable_num_single * tick + 4;
+                    start_var_ID *= market.participants.size();
+
+                    // Store schedule for default demand
+                    {
+                        unsigned int var_ID;
+                        std::string var_name;
+                        double store_value;
+
+                        keys = std::vector <std::string> (3);
+                        keys[0] = "schedule";
+                        keys[1] = "default_demand";
+                        for(unsigned int account_iter = 0; account_iter < account_components.size(); ++ account_iter){
+                            keys[2] = account_components[account_iter];
+                            var_name = keys[1] + "_" + keys[2];
+                            var_ID = start_var_ID + variable_num_single * agent_iter + this->variable.ID[var_name];
+                            store_value = sol[var_ID];
+                            market.participants[agent_iter].update_vector_value <double> (keys, tick, store_value););
+                        }
+                    }
+
+
+                }
+            }
+
         }
 };

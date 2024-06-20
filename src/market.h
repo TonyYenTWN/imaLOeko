@@ -56,6 +56,12 @@ class basic_data_class{
             auto value_ptr = this->get_value_ptr(keys);
             *value_ptr = value;
         }
+
+        template <typename T>
+        void update_vector_value(std::vector <std::string> keys, unsigned int ID, T value){
+            auto vec_ptr = std::any_cast <std::vector <T>> (this->get_value_ptr(keys));
+            (*vec_ptr)[ID] = value;
+        }
 };
 
 class market_information_class: public basic_data_class{
@@ -290,6 +296,20 @@ class market_participant_class: public basic_data_class{
             this->update_value(keys, res_generation);
             keys[1] = "conv_generation";
             this->update_value(keys, conv_generation);
+
+            // Initialize schedule and actual
+            std::vector <double> vec_double (num_interval);
+
+            dataset accounting;
+            accounting["self"] = vec_double;
+            accounting["lem"] = vec_double;
+            accounting["rer"] = vec_double;
+            accounting["cer"] = vec_double;
+
+            dataset operation;
+            operation["default_demand"] = accounting;
+
+            this->data["schedule"] = operation;
         }
 };
 
