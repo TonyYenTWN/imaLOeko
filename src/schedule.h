@@ -773,6 +773,39 @@ class scheduler_class{
                     unsigned int start_var_ID = variable_num_single * tick + 4;
                     start_var_ID *= market.participants.size();
 
+                    // Store schedule for conv
+                    {
+                        unsigned int var_ID;
+                        std::string var_name;
+                        double store_value;
+
+                        keys = std::vector <std::string> (2);
+                        keys[0] = "schedule";
+                        keys[1] = "conv_generation";
+                        var_name = "conv";
+                        var_ID = start_var_ID + variable_num_single * agent_iter + this->variable.ID[var_name];
+                        store_value = sol[var_ID];
+                        market.participants[agent_iter].update_vector_value <double> (keys, tick, store_value);
+                    }
+
+                    // Store schedule for res
+                    {
+                        unsigned int var_ID;
+                        std::string var_name;
+                        double store_value;
+
+                        keys = std::vector <std::string> (3);
+                        keys[0] = "schedule";
+                        keys[1] = "res_generation";
+                        for(unsigned int account_iter = 0; account_iter < account_components.size(); ++ account_iter){
+                            keys[2] = account_components[account_iter];
+                            var_name = "res_" + keys[2];
+                            var_ID = start_var_ID + variable_num_single * agent_iter + this->variable.ID[var_name];
+                            store_value = sol[var_ID];
+                            market.participants[agent_iter].update_vector_value <double> (keys, tick, store_value);
+                        }
+                    }
+
                     // Store schedule for default demand
                     {
                         unsigned int var_ID;
@@ -793,6 +826,35 @@ class scheduler_class{
                             std::cout << tick << "\t";
                             std::cout << store_value << "\t";
                             std::cout << "\n";
+                        }
+                    }
+
+                    // Store schedule for bess
+                    {
+                        unsigned int var_ID;
+                        std::string var_name;
+                        double store_value;
+
+                        keys = std::vector <std::string> (4);
+                        keys[0] = "schedule";
+                        keys[1] = "bess";
+                        std::vector <std::string> direction (2);
+                        direction[0] = "ch";
+                        direction[1] = "dc";
+                        for(unsigned int direction_iter = 0; direction_iter < 2; ++ direction_iter){
+                            keys[2] = direction[direction_iter];
+                            for(unsigned int account_iter = 0; account_iter < account_components.size(); ++ account_iter){
+                                keys[3] = account_components[account_iter];
+                                var_name = keys[1] + "_" + keys[2] + "_" + keys[3];
+                                var_ID = start_var_ID + variable_num_single * agent_iter + this->variable.ID[var_name];
+                                store_value = sol[var_ID];
+                                market.participants[agent_iter].update_vector_value <double> (keys, tick, store_value);
+                                std::cout << agent_iter << "\t";
+                                std::cout << var_name << "\t";
+                                std::cout << tick << "\t";
+                                std::cout << store_value << "\t";
+                                std::cout << "\n";
+                            }
                         }
                     }
                 }

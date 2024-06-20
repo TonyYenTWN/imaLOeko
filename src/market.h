@@ -111,7 +111,7 @@ class market_information_class: public basic_data_class{
             std::vector <double> electricity_price;
             electricity_price.reserve(time_length.size());
             for(unsigned int tick = 0; tick < time_length.size(); ++ tick){
-                electricity_price.push_back(10.);
+                electricity_price.push_back((double) tick);
             }
             keys = std::vector <std::string> (2);
             keys[0] = "prediction";
@@ -316,9 +316,17 @@ class market_participant_class: public basic_data_class{
             accounting["cer"] = vec_double;
 
             dataset operation;
+            operation["conv_generation"] = vec_double;
+            operation["res_generation"] = accounting;
             operation["default_demand"] = accounting;
 
+            dataset bess;
+            bess["ch"] = accounting;
+            bess["dc"] = accounting;
+            operation["bess"] = bess;
+
             this->data["schedule"] = operation;
+            this->data["actual"] = operation;
         }
 };
 
