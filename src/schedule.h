@@ -34,8 +34,9 @@ class scheduler_class{
                 // Variables 20 - 23: self, lem, rer, cer of default demand
                 // Variables 24 - 27: self, lem, rer, cer of BESS charge
                 // Variables 28 - 31: self, lem, rer, cer of BESS discharge
-                // Variables 32 - 35: self, lem, rer, cer of SOC
-            this->variable.name = std::vector <std::string> (36);
+                // Variable 32 - 34: downgrading variables of stored electricity (self->lem, lem->rer, rer->cer)
+                // Variables 35 - 38: self, lem, rer, cer of SOC
+            this->variable.name = std::vector <std::string> (39);
             this->variable.name[0] = "supply_self";
             this->variable.name[1] = "supply_lem";
             this->variable.name[2] = "supply_rer";
@@ -68,10 +69,13 @@ class scheduler_class{
             this->variable.name[29] = "bess_dc_lem";
             this->variable.name[30] = "bess_dc_rer";
             this->variable.name[31] = "bess_dc_cer";
-            this->variable.name[32] = "soc_self";
-            this->variable.name[33] = "soc_lem";
-            this->variable.name[34] = "soc_rer";
-            this->variable.name[35] = "soc_cer";
+            this->variable.name[32] = "bess_self_lem";
+            this->variable.name[33] = "bess_lem_rer";
+            this->variable.name[34] = "bess_rer_cer";
+            this->variable.name[35] = "soc_self";
+            this->variable.name[36] = "soc_lem";
+            this->variable.name[37] = "soc_rer";
+            this->variable.name[38] = "soc_cer";
 
             for(unsigned int var_iter = 0; var_iter < this->variable.name.size(); ++ var_iter){
                 this->variable.ID[this->variable.name[var_iter]] = var_iter;
@@ -140,10 +144,10 @@ class scheduler_class{
                     non_zero_num[start_ID_temp + 15] = 3;
                     non_zero_num[start_ID_temp + 16] = 3;
                     non_zero_num[start_ID_temp + 17] = 3;
-                    non_zero_num[start_ID_temp + 18] = 4;
-                    non_zero_num[start_ID_temp + 19] = 4;
-                    non_zero_num[start_ID_temp + 20] = 4;
-                    non_zero_num[start_ID_temp + 21] = 4;
+                    non_zero_num[start_ID_temp + 18] = 5;
+                    non_zero_num[start_ID_temp + 19] = 6;
+                    non_zero_num[start_ID_temp + 20] = 6;
+                    non_zero_num[start_ID_temp + 21] = 5;
                 }
             }
             alglib::integer_1d_array row_sizes_general;
@@ -392,6 +396,18 @@ class scheduler_class{
                         var_name = "bess_dc_" + account_components[account_iter];
                         col_ID = start_col_ID + variable_num_single * agent_iter + this->variable.ID[var_name];
                         alglib::sparseset(constraint_general, row_ID, col_ID, -1. / efficiency);
+
+                        if(account_iter > 0){
+                            var_name = "bess_" + account_components[account_iter - 1] + "_" + account_components[account_iter];
+                            col_ID = start_col_ID + variable_num_single * agent_iter + this->variable.ID[var_name];
+                            alglib::sparseset(constraint_general, row_ID, col_ID, 1.);
+                        }
+
+                        if(account_iter < account_components.size() - 1){
+                            var_name = "bess_" + account_components[account_iter] + "_" + account_components[account_iter + 1];
+                            col_ID = start_col_ID + variable_num_single * agent_iter + this->variable.ID[var_name];
+                            alglib::sparseset(constraint_general, row_ID, col_ID, -1.);
+                        }
 
                         var_name = "soc_" + account_components[account_iter];
                         col_ID = start_col_ID + variable_num_single * agent_iter + this->variable.ID[var_name];
@@ -738,5 +754,12 @@ class scheduler_class{
             // Solve the problem
             // -------------------------------------------------------------------------------
             alglib::minlpoptimize(this->Problem);
+
+            // -------------------------------------------------------------------------------
+            // Write the results
+            // -------------------------------------------------------------------------------
+            alglib::real_1d_array sol;
+            alglib::minlpreport rep;
+            minlpresults(this->Problem, sol, rep);
         }
 };
