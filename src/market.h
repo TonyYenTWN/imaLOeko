@@ -99,7 +99,7 @@ class market_information_class: public basic_data_class{
             for(unsigned int short_iter = 0; short_iter < num_short_range; ++ short_iter){
                 time_length.push_back(1. / 12.);
             }
-            for(unsigned int short_iter = 0; short_iter < num_short_range; ++ short_iter){
+            for(unsigned int long_iter = 0; long_iter < num_long_range; ++ long_iter){
                 time_length.push_back(1.);
             }
             keys = std::vector <std::string> (2);
@@ -228,7 +228,7 @@ class market_participant_class: public basic_data_class{
             // Insert default demand for prosumers
             if(participant_type >= 2){
                 for(unsigned int tick = 0; tick < num_interval; ++ tick){
-                    double demand_temp = 1.;
+                    double demand_temp = 2.;
                     double res_temp = 0.;
                     double conv_temp = 0.;
                     double ref_coeff_temp = 0.;
@@ -286,6 +286,15 @@ class market_participant_class: public basic_data_class{
             keys[1] = "bess";
             keys[2] = "ref_coeff";
             this->update_value(keys, ref_coeff);
+
+            // Higher cost for res retailer
+            if(participant_type == 1){
+                keys = std::vector <std::string> (3);
+                keys[0] = "parameter";
+                keys[1] = "premium";
+                keys[2] = "res";
+                this->update_value(keys, 1.);
+            }
 
             // Store prediction time series
             keys = std::vector <std::string> (2);
