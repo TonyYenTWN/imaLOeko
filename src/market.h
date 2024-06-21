@@ -87,8 +87,8 @@ class market_information_class: public basic_data_class{
 
             // Insert time length (in hours)
             // 12 5-min time intervals + 23 1-hour intervals
-            unsigned int num_short_range = 1;
-            unsigned int num_long_range = 1;
+            unsigned int num_short_range = 0;
+            unsigned int num_long_range = 4;
             keys = std::vector <std::string> (2);
             keys[0] = "parameter";
             keys[1] = "num_interval";
@@ -151,10 +151,10 @@ class market_participant_class: public basic_data_class{
 
                 // Initial soc
                 dataset initial_soc;
-                initial_soc["self"] = (double) 1.;
-                initial_soc["lem"] = (double) 1.;
-                initial_soc["rer"] = (double) 1.;
-                initial_soc["cer"] = (double) 1.;
+                initial_soc["self"] = (double) 0.;
+                initial_soc["lem"] = (double) 0.;
+                initial_soc["rer"] = (double) 0.;
+                initial_soc["cer"] = (double) 0.;
                 bess_par["initial_soc"] = initial_soc;
             }
             parameter["bess"] = bess_par;
@@ -289,11 +289,19 @@ class market_participant_class: public basic_data_class{
             this->update_value(keys, ref_coeff);
             if(participant_type >= 2){
                 keys[2] = "energy";
-                this->update_value(keys, (double) 6.);
+                this->update_value(keys, (double) .6);
                 keys[2] = "capacity";
-                this->update_value(keys, (double) 1.);
-            }
+                this->update_value(keys, (double) .1);
 
+                keys = std::vector <std::string> (4);
+                keys[0] = "parameter";
+                keys[1] = "bess";
+                keys[2] = "initial_soc";
+                keys[3] = "rer";
+                this->update_value(keys, (double) .1);
+                keys[3] = "cer";
+                this->update_value(keys, (double) .1);
+            }
 
             // Higher cost for res retailer
             if(participant_type == 1){

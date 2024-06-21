@@ -391,7 +391,6 @@ class scheduler_class{
                         }
                         else{
                             col_ID = account_components.size() * agent_iter + account_iter;
-                            std::cout << col_ID << "\n";
                         }
                         alglib::sparseset(constraint_general, row_ID, col_ID, 1.);
 
@@ -497,13 +496,13 @@ class scheduler_class{
                     unsigned int var_ID = 4 * agent_iter + account_iter;
                     bound_box[0][var_ID] = std::any_cast <double> (initial_soc[account_components[account_iter]]);
                     bound_box[1][var_ID] = std::any_cast <double> (initial_soc[account_components[account_iter]]);
-                    std::cout << "Inital\t";
-                    std::cout << agent_iter << "\t";
-                    std::cout << account_iter << "\t";
-                    std::cout << var_ID << "\t";
-                    std::cout << bound_box[0][var_ID] << "\t";
-                    std::cout << bound_box[1][var_ID] << "\t";
-                    std::cout << "\n";
+//                    std::cout << "Inital\t";
+//                    std::cout << agent_iter << "\t";
+//                    std::cout << account_iter << "\t";
+//                    std::cout << var_ID << "\t";
+//                    std::cout << bound_box[0][var_ID] << "\t";
+//                    std::cout << bound_box[1][var_ID] << "\t";
+//                    std::cout << "\n";
                 }
             }
 
@@ -570,6 +569,12 @@ class scheduler_class{
                         var_name = "soc";
                         var_ID = start_var_ID + variable_num_single * agent_iter + this->variable.ID[var_name];
                         bound_box[1][var_ID] = energy;
+//                        std::cout << agent_iter << "\t";
+//                        std::cout << var_ID << "\t";
+//                        std::cout << var_name << "\t";
+//                        std::cout << bound_box[0][var_ID] << "\t";
+//                        std::cout << bound_box[1][var_ID] << "\t";
+//                        std::cout << "\n";
                     }
 
                     // Box constraints and objective values of soc_{ref}
@@ -768,6 +773,7 @@ class scheduler_class{
             // -------------------------------------------------------------------------------
             alglib::minlpoptimize(this->Problem);
 
+//            return;
             // -------------------------------------------------------------------------------
             // Write the results
             // -------------------------------------------------------------------------------
@@ -776,6 +782,14 @@ class scheduler_class{
             minlpresults(this->Problem, sol, rep);
             for(unsigned int tick = 0; tick < num_interval; ++ tick){
                 for(unsigned int agent_iter = 0; agent_iter < market.participants.size(); ++ agent_iter){
+                    keys = std::vector <std::string> (2);
+                    keys[0] = "parameter";
+                    keys[1] = "type";
+                    auto type_ID = std::any_cast <unsigned int> (*market.participants[agent_iter].get_value_ptr(keys));
+                    if(type_ID != 2){
+                        continue;
+                    }
+
                     std::vector <std::string> account_components(4);
                     account_components[0] = "self";
                     account_components[1] = "lem";
@@ -892,6 +906,86 @@ class scheduler_class{
                             std::cout << store_value << "\t";
                             std::cout << "\n";
                         }
+                    }
+
+                    // Just for double-check of reuslts
+                    {
+                        unsigned int var_ID;
+                        std::string var_name;
+
+                        var_name = "soc_self_lem";
+                        var_ID = start_var_ID + variable_num_single * agent_iter + this->variable.ID[var_name];
+                        std::cout << tick << "\t";
+                        std::cout << agent_iter << "\t";
+                        std::cout << var_name << "\t";
+                        std::cout << sol[var_ID] << "\t";
+                        std::cout << "\n";
+
+                        var_name = "soc_lem_rer";
+                        var_ID = start_var_ID + variable_num_single * agent_iter + this->variable.ID[var_name];
+                        std::cout << tick << "\t";
+                        std::cout << agent_iter << "\t";
+                        std::cout << var_name << "\t";
+                        std::cout << sol[var_ID] << "\t";
+                        std::cout << "\n";
+
+                        var_name = "soc_rer_cer";
+                        var_ID = start_var_ID + variable_num_single * agent_iter + this->variable.ID[var_name];
+                        std::cout << tick << "\t";
+                        std::cout << agent_iter << "\t";
+                        std::cout << var_name << "\t";
+                        std::cout << sol[var_ID] << "\t";
+                        std::cout << "\n";
+
+                        var_name = "default_demand_rer";
+                        var_ID = start_var_ID + variable_num_single * agent_iter + this->variable.ID[var_name];
+                        std::cout << tick << "\t";
+                        std::cout << agent_iter << "\t";
+                        std::cout << var_name << "\t";
+                        std::cout << sol[var_ID] << "\t";
+                        std::cout << "\n";
+
+                        var_name = "default_demand_cer";
+                        var_ID = start_var_ID + variable_num_single * agent_iter + this->variable.ID[var_name];
+                        std::cout << tick << "\t";
+                        std::cout << agent_iter << "\t";
+                        std::cout << var_name << "\t";
+                        std::cout << sol[var_ID] << "\t";
+                        std::cout << "\n";
+
+                        var_name = "res_rer";
+                        var_ID = start_var_ID + variable_num_single * agent_iter + this->variable.ID[var_name];
+                        std::cout << tick << "\t";
+                        std::cout << agent_iter << "\t";
+                        std::cout << var_name << "\t";
+                        std::cout << sol[var_ID] << "\t";
+                        std::cout << "\n";
+
+                        var_name = "res_cer";
+                        var_ID = start_var_ID + variable_num_single * agent_iter + this->variable.ID[var_name];
+                        std::cout << tick << "\t";
+                        std::cout << agent_iter << "\t";
+                        std::cout << var_name << "\t";
+                        std::cout << sol[var_ID] << "\t";
+                        std::cout << "\n";
+
+                        var_name = "conv";
+                        var_ID = start_var_ID + variable_num_single * agent_iter + this->variable.ID[var_name];
+                        std::cout << tick << "\t";
+                        std::cout << agent_iter << "\t";
+                        std::cout << var_name << "\t";
+                        std::cout << sol[var_ID] << "\t";
+                        std::cout << "\n";
+
+                        var_name = "soc";
+                        var_ID = start_var_ID + variable_num_single * agent_iter + this->variable.ID[var_name];
+                        std::cout << tick << "\t";
+                        std::cout << agent_iter << "\t";
+                        std::cout << var_name << "\t";
+                        std::cout << sol[var_ID] << "\t";
+                        std::cout << "\n";
+
+                        std::cout << rep.terminationtype << "\n";
                     }
                 }
             }
