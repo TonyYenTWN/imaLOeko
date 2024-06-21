@@ -385,8 +385,14 @@ class scheduler_class{
                         auto efficiency = std::any_cast <double> (*market.participants[agent_iter].get_value_ptr(keys));
 
                         var_name = "soc_" + account_components[account_iter];
-                        col_ID = start_col_ID + variable_num_single * agent_iter + this->variable.ID[var_name];
-                        col_ID -= variable_num_single;
+                        if(tick > 0){
+                            col_ID = start_col_ID + variable_num_single * agent_iter + this->variable.ID[var_name];
+                            col_ID -= variable_num_single * market.participants.size();
+                        }
+                        else{
+                            col_ID = account_components.size() * agent_iter + account_iter;
+                            std::cout << col_ID << "\n";
+                        }
                         alglib::sparseset(constraint_general, row_ID, col_ID, 1.);
 
                         var_name = "bess_ch_" + account_components[account_iter];
@@ -491,6 +497,13 @@ class scheduler_class{
                     unsigned int var_ID = 4 * agent_iter + account_iter;
                     bound_box[0][var_ID] = std::any_cast <double> (initial_soc[account_components[account_iter]]);
                     bound_box[1][var_ID] = std::any_cast <double> (initial_soc[account_components[account_iter]]);
+                    std::cout << "Inital\t";
+                    std::cout << agent_iter << "\t";
+                    std::cout << account_iter << "\t";
+                    std::cout << var_ID << "\t";
+                    std::cout << bound_box[0][var_ID] << "\t";
+                    std::cout << bound_box[1][var_ID] << "\t";
+                    std::cout << "\n";
                 }
             }
 
@@ -693,7 +706,7 @@ class scheduler_class{
                             if(type_ID == 1){
                                 bound_box[1][var_ID] = 0;
                             }
-                            obj_vec[var_ID] = electricity_price_temp + res_premium;
+                            obj_vec[var_ID] = electricity_price_temp;
                             obj_vec[var_ID] *= -1;
                         }
                         else{
@@ -821,11 +834,11 @@ class scheduler_class{
                             var_ID = start_var_ID + variable_num_single * agent_iter + this->variable.ID[var_name];
                             store_value = sol[var_ID];
                             market.participants[agent_iter].update_vector_value <double> (keys, tick, store_value);
-                            std::cout << agent_iter << "\t";
-                            std::cout << var_name << "\t";
-                            std::cout << tick << "\t";
-                            std::cout << store_value << "\t";
-                            std::cout << "\n";
+//                            std::cout << agent_iter << "\t";
+//                            std::cout << var_name << "\t";
+//                            std::cout << tick << "\t";
+//                            std::cout << store_value << "\t";
+//                            std::cout << "\n";
                         }
                     }
 
@@ -849,12 +862,35 @@ class scheduler_class{
                                 var_ID = start_var_ID + variable_num_single * agent_iter + this->variable.ID[var_name];
                                 store_value = sol[var_ID];
                                 market.participants[agent_iter].update_vector_value <double> (keys, tick, store_value);
+                                std::cout << tick << "\t";
                                 std::cout << agent_iter << "\t";
                                 std::cout << var_name << "\t";
-                                std::cout << tick << "\t";
                                 std::cout << store_value << "\t";
                                 std::cout << "\n";
                             }
+                        }
+                    }
+
+                    // Store schedule for soc
+                    {
+                        unsigned int var_ID;
+                        std::string var_name;
+                        double store_value;
+
+                        keys = std::vector <std::string> (3);
+                        keys[0] = "schedule";
+                        keys[1] = "soc";
+                        for(unsigned int account_iter = 0; account_iter < account_components.size(); ++ account_iter){
+                            keys[2] = account_components[account_iter];
+                            var_name = keys[1] + "_" + keys[2];
+                            var_ID = start_var_ID + variable_num_single * agent_iter + this->variable.ID[var_name];
+                            store_value = sol[var_ID];
+                            market.participants[agent_iter].update_vector_value <double> (keys, tick, store_value);
+                            std::cout << tick << "\t";
+                            std::cout << agent_iter << "\t";
+                            std::cout << var_name << "\t";
+                            std::cout << store_value << "\t";
+                            std::cout << "\n";
                         }
                     }
                 }

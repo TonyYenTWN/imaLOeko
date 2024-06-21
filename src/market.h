@@ -87,8 +87,8 @@ class market_information_class: public basic_data_class{
 
             // Insert time length (in hours)
             // 12 5-min time intervals + 23 1-hour intervals
-            unsigned int num_short_range = 12;
-            unsigned int num_long_range = 23;
+            unsigned int num_short_range = 1;
+            unsigned int num_long_range = 1;
             keys = std::vector <std::string> (2);
             keys[0] = "parameter";
             keys[1] = "num_interval";
@@ -146,15 +146,15 @@ class market_participant_class: public basic_data_class{
                 bess_par["energy"] = (double) 0.;
                 bess_par["capacity"] = (double) 0.;
                 bess_par["ref_ratio"] = (double) 0.;
-                bess_par["efficiency"] = (double) 1.;
+                bess_par["efficiency"] = (double) .95;
                 bess_par["ref_coeff"] = vec_double;
 
                 // Initial soc
                 dataset initial_soc;
-                initial_soc["self"] = (double) 0.;
-                initial_soc["lem"] = (double) 0.;
-                initial_soc["rer"] = (double) 0.;
-                initial_soc["cer"] = (double) 0.;
+                initial_soc["self"] = (double) 1.;
+                initial_soc["lem"] = (double) 1.;
+                initial_soc["rer"] = (double) 1.;
+                initial_soc["cer"] = (double) 1.;
                 bess_par["initial_soc"] = initial_soc;
             }
             parameter["bess"] = bess_par;
@@ -183,6 +183,7 @@ class market_participant_class: public basic_data_class{
                 bess_var["dc"] = accounting;
             }
             operation["bess"] = bess_var;
+            operation["soc"] = accounting;
 
             // Operation of RES
             operation["res_generation"] = accounting;
@@ -280,12 +281,19 @@ class market_participant_class: public basic_data_class{
                 }
             }
 
-            // Store parameter time series
+            // Store parameters for bess
             keys = std::vector <std::string> (3);
             keys[0] = "parameter";
             keys[1] = "bess";
             keys[2] = "ref_coeff";
             this->update_value(keys, ref_coeff);
+            if(participant_type >= 2){
+                keys[2] = "energy";
+                this->update_value(keys, (double) 6.);
+                keys[2] = "capacity";
+                this->update_value(keys, (double) 1.);
+            }
+
 
             // Higher cost for res retailer
             if(participant_type == 1){
@@ -324,6 +332,7 @@ class market_participant_class: public basic_data_class{
             bess["ch"] = accounting;
             bess["dc"] = accounting;
             operation["bess"] = bess;
+            operation["soc"] = accounting;
 
             this->data["schedule"] = operation;
             this->data["actual"] = operation;
