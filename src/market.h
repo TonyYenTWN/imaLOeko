@@ -88,7 +88,7 @@ class market_information_class: public basic_data_class{
             // Insert time length (in hours)
             // 12 5-min time intervals + 23 1-hour intervals
             unsigned int num_short_range = 0;
-            unsigned int num_long_range = 4;
+            unsigned int num_long_range = 10;
             keys = std::vector <std::string> (2);
             keys[0] = "parameter";
             keys[1] = "num_interval";
@@ -229,7 +229,7 @@ class market_participant_class: public basic_data_class{
             // Insert default demand for prosumers
             if(participant_type >= 2){
                 for(unsigned int tick = 0; tick < num_interval; ++ tick){
-                    double demand_temp = 2.;
+                    double demand_temp = 1.;
                     double res_temp = 0.;
                     double conv_temp = 0.;
                     double ref_coeff_temp = 0.;
@@ -298,18 +298,18 @@ class market_participant_class: public basic_data_class{
                 keys[1] = "bess";
                 keys[2] = "initial_soc";
                 keys[3] = "rer";
-                this->update_value(keys, (double) .1);
+                this->update_value(keys, (double) 0.);
                 keys[3] = "cer";
-                this->update_value(keys, (double) .1);
+                this->update_value(keys, (double) 0.);
             }
 
-            // Higher cost for res retailer
-            if(participant_type == 1){
+            // Higher cost for res retailer / higher utility for using res
+            if(participant_type == 1 || participant_type == 2){
                 keys = std::vector <std::string> (3);
                 keys[0] = "parameter";
                 keys[1] = "premium";
                 keys[2] = "res";
-                this->update_value(keys, 1.);
+                this->update_value(keys, (double) participant_type);
             }
 
             // Store prediction time series
