@@ -87,8 +87,8 @@ class market_information_class: public basic_data_class{
 
             // Insert time length (in hours)
             // 12 5-min time intervals + 23 1-hour intervals
-            unsigned int num_short_range = 0;
-            unsigned int num_long_range = 10;
+            unsigned int num_short_range = 12;
+            unsigned int num_long_range = 23;
             keys = std::vector <std::string> (2);
             keys[0] = "parameter";
             keys[1] = "num_interval";
@@ -351,6 +351,10 @@ class market_class{
     public:
         market_information_class information;
         std::vector <market_participant_class> participants;
+
+        void registration(){
+
+        }
 
         void test(){
             this->information.test();
