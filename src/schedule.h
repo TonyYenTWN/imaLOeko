@@ -876,11 +876,6 @@ class scheduler_class{
                                 var_ID = start_var_ID + variable_num_single * agent_iter + this->variable.ID[var_name];
                                 store_value = sol[var_ID];
                                 market.participants[agent_iter].update_vector_value <double> (keys, tick, store_value);
-                                std::cout << tick << "\t";
-                                std::cout << agent_iter << "\t";
-                                std::cout << var_name << "\t";
-                                std::cout << store_value << "\t";
-                                std::cout << "\n";
                             }
                         }
                     }
@@ -900,92 +895,7 @@ class scheduler_class{
                             var_ID = start_var_ID + variable_num_single * agent_iter + this->variable.ID[var_name];
                             store_value = sol[var_ID];
                             market.participants[agent_iter].update_vector_value <double> (keys, tick, store_value);
-                            std::cout << tick << "\t";
-                            std::cout << agent_iter << "\t";
-                            std::cout << var_name << "\t";
-                            std::cout << store_value << "\t";
-                            std::cout << "\n";
                         }
-                    }
-
-                    // Just for double-check of reuslts
-                    {
-                        unsigned int var_ID;
-                        std::string var_name;
-
-                        var_name = "soc_self_lem";
-                        var_ID = start_var_ID + variable_num_single * agent_iter + this->variable.ID[var_name];
-                        std::cout << tick << "\t";
-                        std::cout << agent_iter << "\t";
-                        std::cout << var_name << "\t";
-                        std::cout << sol[var_ID] << "\t";
-                        std::cout << "\n";
-
-                        var_name = "soc_lem_rer";
-                        var_ID = start_var_ID + variable_num_single * agent_iter + this->variable.ID[var_name];
-                        std::cout << tick << "\t";
-                        std::cout << agent_iter << "\t";
-                        std::cout << var_name << "\t";
-                        std::cout << sol[var_ID] << "\t";
-                        std::cout << "\n";
-
-                        var_name = "soc_rer_cer";
-                        var_ID = start_var_ID + variable_num_single * agent_iter + this->variable.ID[var_name];
-                        std::cout << tick << "\t";
-                        std::cout << agent_iter << "\t";
-                        std::cout << var_name << "\t";
-                        std::cout << sol[var_ID] << "\t";
-                        std::cout << "\n";
-
-                        var_name = "default_demand_rer";
-                        var_ID = start_var_ID + variable_num_single * agent_iter + this->variable.ID[var_name];
-                        std::cout << tick << "\t";
-                        std::cout << agent_iter << "\t";
-                        std::cout << var_name << "\t";
-                        std::cout << sol[var_ID] << "\t";
-                        std::cout << "\n";
-
-                        var_name = "default_demand_cer";
-                        var_ID = start_var_ID + variable_num_single * agent_iter + this->variable.ID[var_name];
-                        std::cout << tick << "\t";
-                        std::cout << agent_iter << "\t";
-                        std::cout << var_name << "\t";
-                        std::cout << sol[var_ID] << "\t";
-                        std::cout << "\n";
-
-                        var_name = "res_rer";
-                        var_ID = start_var_ID + variable_num_single * agent_iter + this->variable.ID[var_name];
-                        std::cout << tick << "\t";
-                        std::cout << agent_iter << "\t";
-                        std::cout << var_name << "\t";
-                        std::cout << sol[var_ID] << "\t";
-                        std::cout << "\n";
-
-                        var_name = "res_cer";
-                        var_ID = start_var_ID + variable_num_single * agent_iter + this->variable.ID[var_name];
-                        std::cout << tick << "\t";
-                        std::cout << agent_iter << "\t";
-                        std::cout << var_name << "\t";
-                        std::cout << sol[var_ID] << "\t";
-                        std::cout << "\n";
-
-                        var_name = "conv";
-                        var_ID = start_var_ID + variable_num_single * agent_iter + this->variable.ID[var_name];
-                        std::cout << tick << "\t";
-                        std::cout << agent_iter << "\t";
-                        std::cout << var_name << "\t";
-                        std::cout << sol[var_ID] << "\t";
-                        std::cout << "\n";
-
-                        var_name = "soc";
-                        var_ID = start_var_ID + variable_num_single * agent_iter + this->variable.ID[var_name];
-                        std::cout << tick << "\t";
-                        std::cout << agent_iter << "\t";
-                        std::cout << var_name << "\t";
-                        std::cout << sol[var_ID] << "\t";
-                        std::cout << "\n";
-
-                        std::cout << rep.terminationtype << "\n";
                     }
                 }
             }
