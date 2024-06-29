@@ -12,7 +12,26 @@
 
 // general db class
 class data_base_class {
+    private:
+
     public:
+        pqxx::connection conn_init(){
+            reader_class reader;
+
+            std::string db_par = reader.read_one_line(".env");
+            pqxx::connection conn(db_par);
+
+            // Check if database can be connected
+            if (conn.is_open()) {
+                std::cout << "Opened database successfully: " << conn.dbname() << std::endl;
+            }
+            else {
+                std::cout << "Can't open database" << std::endl;
+            }
+
+            return conn;
+        }
+
         void create_ts_table(pqxx::work trade, std::string table_name, std::vector <std::string> col_name){
 
         }
@@ -54,7 +73,7 @@ class data_base_tester_class: public data_base_class{
             this->create_table_test(trade);
         }
 
-        bool test(){
+        bool conn_test(){
             data_base_tester_class data_base_tester;
             reader_class reader;
 
