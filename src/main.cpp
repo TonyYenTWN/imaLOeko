@@ -11,7 +11,7 @@ int main(int argc, char* argv[]){
     // Time series test
     time_series_class time_series;
     auto ts_test = time_series.create_ts_test();
-    time_series.temporal_integration(ts_test);
+    time_series.temporal_integration(ts_test, 1);
 
     // Database test
 //    data_base_class data_base;

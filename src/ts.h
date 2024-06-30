@@ -119,17 +119,19 @@ class time_series_class {
             output["hour"] = hour;
             output["minute"] = minute;
             output["second"] = second;
+            output["value"] = value;
 
             return output;
         }
 
-        void temporal_integration(dataset &data){
+        void temporal_integration(dataset &data, unsigned int res_min){
             auto year_data = std::any_cast <std::vector <unsigned int>> (data["year"]);
             auto month_data = std::any_cast <std::vector <unsigned int>> (data["month"]);
             auto day_data = std::any_cast <std::vector <unsigned int>> (data["day"]);
             auto hour_data = std::any_cast <std::vector <unsigned int>> (data["hour"]);
             auto minute_data = std::any_cast <std::vector <unsigned int>> (data["minute"]);
             auto second_data = std::any_cast <std::vector <unsigned int>> (data["second"]);
+            auto value_data = std::any_cast <std::vector <double>> (data["value"]);
 
             std::chrono::year_month_day first_date{
                 std::chrono::year(year_data[0]),
@@ -178,7 +180,8 @@ class time_series_class {
                     std::chrono::month(month_sample[tick]),
                     std::chrono::day(day_sample[tick])
                 };
-                auto sample_time_temp = std::chrono::sys_days{sample_date_temp} + std::chrono::hours{hour_sample[tick]} + std::chrono::minutes{minute_sample[tick]} + std::chrono::seconds{second_sample[tick]};
+                auto sample_time_left_temp = std::chrono::sys_days{sample_date_temp} + std::chrono::hours{hour_sample[tick]} + std::chrono::minutes{minute_sample[tick]} + std::chrono::seconds{second_sample[tick]};
+                auto sample_time_right_temp = sample_time_left_temp + std::chrono::minutes{res_min};
 
                 while(true){
                     std::chrono::year_month_day left_date_temp{
@@ -188,18 +191,12 @@ class time_series_class {
                     };
                     auto left_time_temp = std::chrono::sys_days{left_date_temp} + std::chrono::hours{hour_data[left_time_ID]} + std::chrono::minutes{minute_data[left_time_ID]} + std::chrono::seconds{second_data[left_time_ID]};
 
-                    if(left_time_temp > sample_time_temp){
+                    if(left_time_temp > sample_time_left_temp){
                         left_time_ID -= 1;
                         break;
                     }
                     left_time_ID += 1;
                 }
-                std::chrono::year_month_day left_date{
-                    std::chrono::year(year_data[left_time_ID]),
-                    std::chrono::month(month_data[left_time_ID]),
-                    std::chrono::day(day_data[left_time_ID])
-                };
-                auto left_time = std::chrono::sys_days{left_date} + std::chrono::hours{hour_data[left_time_ID]} + std::chrono::minutes{minute_data[left_time_ID]} + std::chrono::seconds{second_data[left_time_ID]};
 
                 while(true){
                     std::chrono::year_month_day right_date_temp{
@@ -209,24 +206,58 @@ class time_series_class {
                     };
                     auto right_time_temp = std::chrono::sys_days{right_date_temp} + std::chrono::hours{hour_data[right_time_ID]} + std::chrono::minutes{minute_data[right_time_ID]} + std::chrono::seconds{second_data[right_time_ID]};
 
-                    if(right_time_temp > sample_time_temp){
+                    if(right_time_temp > sample_time_right_temp){
                         break;
                     }
                     right_time_ID += 1;
                 }
-                std::chrono::year_month_day right_date{
-                    std::chrono::year(year_data[right_time_ID]),
-                    std::chrono::month(month_data[right_time_ID]),
-                    std::chrono::day(day_data[right_time_ID])
-                };
-                auto right_time = std::chrono::sys_days{right_date} + std::chrono::hours{hour_data[right_time_ID]} + std::chrono::minutes{minute_data[right_time_ID]} + std::chrono::seconds{second_data[right_time_ID]};
 
-//                std::cout << left_time_ID << "\t" << right_time_ID << "\n";
+                double value_temp = 0.;
+                for(unsigned int gap_iter = left_time_ID; gap_iter < right_time_ID; ++ gap_iter){
+                    std::chrono::year_month_day left_date_temp{
+                        std::chrono::year(year_data[gap_iter]),
+                        std::chrono::month(month_data[gap_iter]),
+                        std::chrono::day(day_data[gap_iter])
+                    };
+                    auto left_time_temp = std::chrono::sys_days{left_date_temp} + std::chrono::hours{hour_data[gap_iter]} + std::chrono::minutes{minute_data[gap_iter]} + std::chrono::seconds{second_data[gap_iter]};
 
+                    std::chrono::year_month_day right_date_temp{
+                        std::chrono::year(year_data[gap_iter + 1]),
+                        std::chrono::month(month_data[gap_iter + 1]),
+                        std::chrono::day(day_data[gap_iter + 1])
+                    };
+                    auto right_time_temp = std::chrono::sys_days{right_date_temp} + std::chrono::hours{hour_data[gap_iter + 1]} + std::chrono::minutes{minute_data[gap_iter + 1]} + std::chrono::seconds{second_data[gap_iter + 1]};
 
-                double interval_ratio = (double) (sample_time_temp - left_time).count();
-                interval_ratio /= (double) (right_time - left_time).count();
-                std::cout << interval_ratio << "\n";
+                    auto left_boundary_temp = std::max(left_time_temp, sample_time_left_temp);
+                    auto right_boundary_temp = std::min(right_time_temp, sample_time_right_temp);
+                    auto interval_duration = (double) (right_boundary_temp - left_boundary_temp).count();
+                    auto gap_duration = (double) (right_time_temp - left_time_temp).count();
+                    auto start_time_temp = (double) (left_boundary_temp - left_time_temp).count();
+
+                    double interval_ratio = start_time_temp;
+                    interval_ratio += .5 * interval_duration;
+                    interval_ratio /= gap_duration;
+                    double value_sample_temp = (1. - interval_ratio) * value_data[gap_iter];
+                    value_sample_temp += interval_ratio * value_data[gap_iter + 1];
+                    value_temp += value_sample_temp * interval_duration / 3600.;
+                }
+
+                value_sample.push_back(value_temp);
+
+//                std::cout << year_sample[tick];
+//                std::cout << "-";
+//                std::cout << month_sample[tick];
+//                std::cout << "-";
+//                std::cout << day_sample[tick];
+//                std::cout << "\t";
+//                std::cout << hour_sample[tick];
+//                std::cout << ":";
+//                std::cout << minute_sample[tick];
+//                std::cout << ":";
+//                std::cout << second_sample[tick];
+//                std::cout << "\t";
+//                std::cout << value_sample[tick];
+//                std::cout << "\n";
             }
         }
 };
