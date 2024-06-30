@@ -8,15 +8,16 @@
 #include "src/ts.h"
 
 int main(int argc, char* argv[]){
+    // Time series test
     time_series_class time_series;
-//    time_series.get_past_days(7);
     auto ts_test = time_series.create_ts_test();
+    time_series.temporal_integration(ts_test);
 
-    // Database Test
+    // Database test
 //    data_base_class data_base;
 //    auto conn = data_base.conn_init();
 
-    // Optimization Test
+    // Optimization test
 //    market_class market;
 //    market.test();
 //    scheduler_class scheduler;
