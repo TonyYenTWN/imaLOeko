@@ -9,6 +9,44 @@ class time_series_class {
     private:
 
     public:
+        std::map <std::string, unsigned int> read_timestamp(std::string timestamp){
+            std::map <std::string, unsigned int> output;
+
+            std::string date_delimiter = "-";
+            std::string time_delimiter = ":";
+
+            std::string year = timestamp.substr(0, timestamp.find(date_delimiter));
+            output["year"] = (unsigned int) stoi(year);
+            timestamp.erase(0, timestamp.find(date_delimiter) + date_delimiter.length());
+
+            std::string month = timestamp.substr(0, timestamp.find(date_delimiter));
+            output["month"] = (unsigned int) stoi(month);
+            timestamp.erase(0, timestamp.find(date_delimiter) + date_delimiter.length());
+
+            std::string day = timestamp.substr(0, timestamp.find(date_delimiter));
+            output["day"] = (unsigned int) stoi(day);
+            timestamp.erase(0, timestamp.find(date_delimiter) + date_delimiter.length());
+
+            timestamp.erase(0, timestamp.find(" ") + date_delimiter.length());
+
+            std::string hour = timestamp.substr(0, timestamp.find(time_delimiter));
+            output["hour"] = (unsigned int) stoi(hour);
+            timestamp.erase(0, timestamp.find(time_delimiter) + time_delimiter.length());
+
+            std::string minute = timestamp.substr(0, timestamp.find(time_delimiter));
+            output["minute"] = (unsigned int) stoi(minute);
+            timestamp.erase(0, timestamp.find(time_delimiter) + time_delimiter.length());
+
+            std::string second = timestamp.substr(0, timestamp.find(time_delimiter));
+            output["second"] = (unsigned int) stoi(second);
+            timestamp.erase(0, timestamp.find(time_delimiter) + time_delimiter.length());
+
+            std::cout << output["year"] << "-" << output["month"] << "-" << output["day"] << " ";
+            std::cout << output["hour"] << "-" << output["minute"] << "-" << output["second"] << "\n";
+
+            return output;
+        }
+
         std::vector <std::chrono::sys_days> get_past_days(unsigned int num_day, int time_zone_hour = 0, int time_zone_minute = 0){
             // Current time and date
             auto now = std::chrono::system_clock::now() + std::chrono::hours{time_zone_hour} + std::chrono::minutes{time_zone_minute};

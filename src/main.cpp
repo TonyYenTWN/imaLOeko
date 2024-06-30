@@ -8,10 +8,14 @@
 #include "src/ts.h"
 
 int main(int argc, char* argv[]){
+    // Read-write test
+//    reader_class reader;
+
     // Time series test
     time_series_class time_series;
-    auto ts_test = time_series.create_ts_test();
-    time_series.temporal_integration(ts_test, 1);
+    time_series.read_timestamp("2024-06-30 13:54:00");
+//    auto ts_test = time_series.create_ts_test();
+//    time_series.temporal_integration(ts_test, 1);
 
     // Database test
 //    data_base_class data_base;
