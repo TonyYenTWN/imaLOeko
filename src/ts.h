@@ -41,8 +41,8 @@ class time_series_class {
             output["second"] = (unsigned int) stoi(second);
             timestamp.erase(0, timestamp.find(time_delimiter) + time_delimiter.length());
 
-            std::cout << output["year"] << "-" << output["month"] << "-" << output["day"] << " ";
-            std::cout << output["hour"] << "-" << output["minute"] << "-" << output["second"] << "\n";
+//            std::cout << output["year"] << "-" << output["month"] << "-" << output["day"] << " ";
+//            std::cout << output["hour"] << "-" << output["minute"] << "-" << output["second"] << "\n";
 
             return output;
         }
@@ -60,109 +60,9 @@ class time_series_class {
             return results;
         }
 
-        dataset create_ts_test(){
+        dataset temporal_integration(dataset &data, unsigned int res_min){
             dataset output;
 
-            auto days_range = get_past_days(1, -4, 0);
-
-            std::vector <unsigned int> year;
-            std::vector <unsigned int> month;
-            std::vector <unsigned int> day;
-            std::vector <unsigned int> hour;
-            std::vector <unsigned int> minute;
-            std::vector <unsigned int> second;
-            std::vector <double> value;
-            year.reserve(50);
-            month.reserve(50);
-            day.reserve(50);
-            hour.reserve(50);
-            minute.reserve(50);
-            second.reserve(50);
-            value.reserve(50);
-
-            // First tick
-            {
-                auto earliest_day = days_range[0] - std::chrono::days{1};
-                auto time_temp = days_range[0] - std::chrono::minutes{15};
-                std::chrono::year_month_day date_temp {earliest_day};
-                int year_temp {date_temp.year()};
-                int month_temp = unsigned{date_temp.month()};
-                int day_temp = unsigned{date_temp.day()};
-                year.push_back(year_temp);
-                month.push_back(month_temp);
-                day.push_back(day_temp);
-
-                std::chrono::hh_mm_ss clock_temp {time_temp - earliest_day};
-                hour.push_back(clock_temp.hours().count());
-                minute.push_back(clock_temp.minutes().count());
-                second.push_back(clock_temp.seconds().count());
-                value.push_back((double) (value.size() % 2 == 0));
-            }
-
-            // Middle ticks
-            for(unsigned int tick = 0; tick < 48; ++ tick){
-                auto time_temp = days_range[0] + std::chrono::minutes{15 + 30 * tick};
-                std::chrono::year_month_day date_temp {days_range[0]};
-                int year_temp {date_temp.year()};
-                int month_temp = unsigned{date_temp.month()};
-                int day_temp = unsigned{date_temp.day()};
-                year.push_back(year_temp);
-                month.push_back(month_temp);
-                day.push_back(day_temp);
-
-                std::chrono::hh_mm_ss clock_temp {time_temp - days_range[0]};
-                hour.push_back(clock_temp.hours().count());
-                minute.push_back(clock_temp.minutes().count());
-                second.push_back(clock_temp.seconds().count());
-                value.push_back((double) (value.size() % 2 == 0));
-
-//                std::cout << year_temp;
-//                std::cout << "-";
-//                std::cout << month_temp;
-//                std::cout << "-";
-//                std::cout << day_temp;
-//                std::cout << "\t";
-//                std::cout << hour[hour.size() - 1];
-//                std::cout << ":";
-//                std::cout << minute[minute.size() - 1];
-//                std::cout << ":";
-//                std::cout << second[second.size() - 1];
-//                std::cout << "\t";
-//                std::cout << value[value.size() - 1];
-//                std::cout << "\n";
-            }
-
-            // Last tick
-            {
-                auto time_temp = days_range[1] + std::chrono::minutes{15};
-                std::chrono::year_month_day date_temp {days_range[1]};
-                int year_temp {date_temp.year()};
-                int month_temp = unsigned{date_temp.month()};
-                int day_temp = unsigned{date_temp.day()};
-                year.push_back(year_temp);
-                month.push_back(month_temp);
-                day.push_back(day_temp);
-
-                std::chrono::hh_mm_ss clock_temp {time_temp - days_range[1]};
-                hour.push_back(clock_temp.hours().count());
-                minute.push_back(clock_temp.minutes().count());
-                second.push_back(clock_temp.seconds().count());
-                value.push_back((double) (value.size() % 2 == 0));
-            }
-
-            // Store output time series data
-            output["year"] = year;
-            output["month"] = month;
-            output["day"] = day;
-            output["hour"] = hour;
-            output["minute"] = minute;
-            output["second"] = second;
-            output["value"] = value;
-
-            return output;
-        }
-
-        void temporal_integration(dataset &data, unsigned int res_min){
             auto year_data = std::any_cast <std::vector <unsigned int>> (data["year"]);
             auto month_data = std::any_cast <std::vector <unsigned int>> (data["month"]);
             auto day_data = std::any_cast <std::vector <unsigned int>> (data["day"]);
@@ -177,6 +77,17 @@ class time_series_class {
                 std::chrono::day(day_data[0])
             };
 
+            std::chrono::year_month_day last_date{
+                std::chrono::year(year_data[year_data.size() - 1]),
+                std::chrono::month(month_data[month_data.size() - 1]),
+                std::chrono::day(day_data[day_data.size() - 1])
+            };
+
+            auto num_day = (std::chrono::sys_days{last_date} - std::chrono::sys_days{first_date}).count();
+            num_day -= 1;
+            unsigned int num_sample_day = 1440 / res_min;
+            unsigned int num_sample = num_sample_day * num_day;
+
             std::vector <unsigned int> year_sample;
             std::vector <unsigned int> month_sample;
             std::vector <unsigned int> day_sample;
@@ -184,35 +95,37 @@ class time_series_class {
             std::vector <unsigned int> minute_sample;
             std::vector <unsigned int> second_sample;
             std::vector <double> value_sample;
-            year_sample.reserve(1440);
-            month_sample.reserve(1440);
-            day_sample.reserve(1440);
-            hour_sample.reserve(1440);
-            minute_sample.reserve(1440);
-            second_sample.reserve(1440);
-            value_sample.reserve(1440);
+            year_sample.reserve(num_sample);
+            month_sample.reserve(num_sample);
+            day_sample.reserve(num_sample);
+            hour_sample.reserve(num_sample);
+            minute_sample.reserve(num_sample);
+            second_sample.reserve(num_sample);
+            value_sample.reserve(num_sample);
 
             // Create sampling time intervals
-            for(unsigned int tick = 0; tick < 1440; ++ tick){
-                auto sample_time_temp  = std::chrono::sys_days{first_date} + std::chrono::days{1} + std::chrono::minutes{tick};
-                std::chrono::year_month_day sample_date_temp {std::chrono::floor <std::chrono::days> (sample_time_temp)};
+            for(unsigned int day_iter = 0; day_iter < num_day; ++ day_iter){
+                for(unsigned int tick = 0; tick < num_sample_day; ++ tick){
+                    auto sample_time_temp  = std::chrono::sys_days{first_date} + std::chrono::days{day_iter + 1} + std::chrono::minutes{tick * res_min};
+                    std::chrono::year_month_day sample_date_temp {std::chrono::floor <std::chrono::days> (sample_time_temp)};
 
-                int year_temp {sample_date_temp.year()};
-                int month_temp = unsigned{sample_date_temp.month()};
-                int day_temp = unsigned{sample_date_temp.day()};
-                year_sample.push_back(year_temp);
-                month_sample.push_back(month_temp);
-                day_sample.push_back(day_temp);
+                    int year_temp {sample_date_temp.year()};
+                    int month_temp = unsigned{sample_date_temp.month()};
+                    int day_temp = unsigned{sample_date_temp.day()};
+                    year_sample.push_back(year_temp);
+                    month_sample.push_back(month_temp);
+                    day_sample.push_back(day_temp);
 
-                std::chrono::hh_mm_ss clock_temp {sample_time_temp - std::chrono::sys_days{sample_date_temp}};
-                hour_sample.push_back(clock_temp.hours().count());
-                minute_sample.push_back(clock_temp.minutes().count());
-                second_sample.push_back(clock_temp.seconds().count());
+                    std::chrono::hh_mm_ss clock_temp {sample_time_temp - std::chrono::sys_days{sample_date_temp}};
+                    hour_sample.push_back(clock_temp.hours().count());
+                    minute_sample.push_back(clock_temp.minutes().count());
+                    second_sample.push_back(clock_temp.seconds().count());
+                }
             }
 
             unsigned int left_time_ID = 0;
             unsigned int right_time_ID = 0;
-            for(unsigned int tick = 0; tick < 1440; ++ tick){
+            for(unsigned int tick = 0; tick < num_sample; ++ tick){
                 std::chrono::year_month_day sample_date_temp{
                     std::chrono::year(year_sample[tick]),
                     std::chrono::month(month_sample[tick]),
@@ -297,8 +210,136 @@ class time_series_class {
 //                std::cout << value_sample[tick];
 //                std::cout << "\n";
             }
+
+            // Store output time series data
+            output["year"] = year_sample;
+            output["month"] = month_sample;
+            output["day"] = day_sample;
+            output["hour"] = hour_sample;
+            output["minute"] = minute_sample;
+            output["second"] = second_sample;
+            output["value"] = value_sample;
+
+            return output;
+        }
+
+        void periodic_profile(dataset &data, unsigned int num_period){
+            auto year_data = std::any_cast <std::vector <unsigned int>> (data["year"]);
+            auto month_data = std::any_cast <std::vector <unsigned int>> (data["month"]);
+            auto day_data = std::any_cast <std::vector <unsigned int>> (data["day"]);
+            auto hour_data = std::any_cast <std::vector <unsigned int>> (data["hour"]);
+            auto minute_data = std::any_cast <std::vector <unsigned int>> (data["minute"]);
+            auto second_data = std::any_cast <std::vector <unsigned int>> (data["second"]);
+            auto value_data = std::any_cast <std::vector <double>> (data["value"]);
+
+            unsigned int num_interval_period = value_data.size() / num_period;
         }
 };
 
+class time_series_tester_class: public time_series_class{
+    public:
+        dataset create_ts_test(unsigned int num_day){
+            dataset output;
 
+            auto days_range = get_past_days(num_day, -4, 0);
+            unsigned int num_interval = 2 + 48 * num_day;
 
+            std::vector <unsigned int> year;
+            std::vector <unsigned int> month;
+            std::vector <unsigned int> day;
+            std::vector <unsigned int> hour;
+            std::vector <unsigned int> minute;
+            std::vector <unsigned int> second;
+            std::vector <double> value;
+            year.reserve(num_interval);
+            month.reserve(num_interval);
+            day.reserve(num_interval);
+            hour.reserve(num_interval);
+            minute.reserve(num_interval);
+            second.reserve(num_interval);
+            value.reserve(num_interval);
+
+            // First tick
+            {
+                auto earliest_day = days_range[0] - std::chrono::days{1};
+                auto time_temp = days_range[0] - std::chrono::minutes{15};
+                std::chrono::year_month_day date_temp {earliest_day};
+                int year_temp {date_temp.year()};
+                int month_temp = unsigned{date_temp.month()};
+                int day_temp = unsigned{date_temp.day()};
+                year.push_back(year_temp);
+                month.push_back(month_temp);
+                day.push_back(day_temp);
+
+                std::chrono::hh_mm_ss clock_temp {time_temp - earliest_day};
+                hour.push_back(clock_temp.hours().count());
+                minute.push_back(clock_temp.minutes().count());
+                second.push_back(clock_temp.seconds().count());
+                value.push_back((double) (value.size() % 2 == 0));
+            }
+
+            // Middle ticks
+            for(unsigned int day_iter = 0; day_iter < num_day; ++ day_iter){
+                for(unsigned int tick = 0; tick < 48; ++ tick){
+                    auto time_temp = days_range[0] + std::chrono::days{day_iter} + std::chrono::minutes{15 + 30 * tick};
+                    std::chrono::year_month_day date_temp {days_range[0] + std::chrono::days{day_iter}};
+                    int year_temp {date_temp.year()};
+                    int month_temp = unsigned{date_temp.month()};
+                    int day_temp = unsigned{date_temp.day()};
+                    year.push_back(year_temp);
+                    month.push_back(month_temp);
+                    day.push_back(day_temp);
+
+                    std::chrono::hh_mm_ss clock_temp {time_temp - days_range[0] - std::chrono::days{day_iter}};
+                    hour.push_back(clock_temp.hours().count());
+                    minute.push_back(clock_temp.minutes().count());
+                    second.push_back(clock_temp.seconds().count());
+                    value.push_back((double) (value.size() % 2 == 0) + .5 * day_iter);
+
+//                    std::cout << year_temp;
+//                    std::cout << "-";
+//                    std::cout << month_temp;
+//                    std::cout << "-";
+//                    std::cout << day_temp;
+//                    std::cout << "\t";
+//                    std::cout << hour[hour.size() - 1];
+//                    std::cout << ":";
+//                    std::cout << minute[minute.size() - 1];
+//                    std::cout << ":";
+//                    std::cout << second[second.size() - 1];
+//                    std::cout << "\t";
+//                    std::cout << value[value.size() - 1];
+//                    std::cout << "\n";
+                }
+            }
+
+            // Last tick
+            {
+                auto time_temp = days_range[1] + std::chrono::minutes{15};
+                std::chrono::year_month_day date_temp {days_range[1]};
+                int year_temp {date_temp.year()};
+                int month_temp = unsigned{date_temp.month()};
+                int day_temp = unsigned{date_temp.day()};
+                year.push_back(year_temp);
+                month.push_back(month_temp);
+                day.push_back(day_temp);
+
+                std::chrono::hh_mm_ss clock_temp {time_temp - days_range[1]};
+                hour.push_back(clock_temp.hours().count());
+                minute.push_back(clock_temp.minutes().count());
+                second.push_back(clock_temp.seconds().count());
+                value.push_back((double) (value.size() % 2 == 0) + .5 * (num_day - 1));
+            }
+
+            // Store output time series data
+            output["year"] = year;
+            output["month"] = month;
+            output["day"] = day;
+            output["hour"] = hour;
+            output["minute"] = minute;
+            output["second"] = second;
+            output["value"] = value;
+
+            return output;
+        }
+};
